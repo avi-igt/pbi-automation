@@ -7,10 +7,10 @@
 [![Python](https://img.shields.io/badge/Python-3.9%2B-F2C811?style=flat-square&logo=python&logoColor=black)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-06d6a0?style=flat-square)](LICENSE)
 [![Power BI](https://img.shields.io/badge/Power%20BI-Fabric-F2C811?style=flat-square&logo=powerbi&logoColor=black)](https://app.powerbi.com)
-[![Reports](https://img.shields.io/badge/Reports-95%20generated-3b82f6?style=flat-square)](#output-file-formats)
+[![Reports](https://img.shields.io/badge/Reports-auto%20generated-3b82f6?style=flat-square)](#output-file-formats)
 [![FRD Format](https://img.shields.io/badge/FRD-ADO%20%2F%20Word-8b5cf6?style=flat-square)](#frd-format-requirements)
 
-**Turn a Functional Requirements Document into 95 Power BI report files in seconds — not days.**
+**Turn a Functional Requirements Document into Power BI report files in seconds — not days.**
 
 [Quick Start](#quick-start) · [Pipeline](#pipeline) · [Output Formats](#output-file-formats) · [Extending](#extending-the-tool) · [Troubleshooting](#troubleshooting)
 
