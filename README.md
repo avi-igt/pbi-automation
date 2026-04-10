@@ -40,6 +40,10 @@ A typical FRD describes Power BI reports with various attributes: layouts, param
 - **pip**
 - Your FRD as a `.docx` file (ADO / Performance Wizard format)
 
+### Windows
+
+Fully supported. Run in **Windows Terminal** or **PowerShell** for correct Unicode block-art rendering. CLI colours are automatically disabled on Windows — output is plain text but fully functional.
+
 ---
 
 ## Quick Start
