@@ -2,21 +2,21 @@
 rdl_generator.py
 Generates .rdl (Report Definition Language) XML for paginated Power BI reports.
 
-Improvements over reference implementation:
-- Correct RDL structure: uses <ReportSections><ReportSection> wrapper (2016 schema)
-- Correct namespaces matching real Power BI Report Builder output
-- Semantic model datasource uses PBIDATASET provider + DAX EVALUATE query
-- ODBC/DB2 datasource uses ODBC provider + SQL query
-- Field DataField format: 'TableName[ColumnName]' for dimensions (semantic model)
-- Proper parameter linkage via <QueryParameters>
-- Inch-based measurements matching real templates
-- Segoe UI font throughout
+Improvements:
+- Reads connection strings / dataset GUIDs from pbi.properties via config.py
+- Production-matching header: MO Lottery logo + report title + run datetime + date range
+- Production-matching footer: report name + overall page number
+- Hidden ExecDateTime parameter with Code.GetCST() VB function
+- Embedded molotterylogov logo PNG (extracted from template RDL)
+- Correct RDL structure with cl namespace for ComponentMetadata
+- PBIDATASET connector with real Fabric ConnectStrings
+- ODBC/DB2 fallback for legacy DB reports
 """
 
 import json
 import re
-import textwrap
 import uuid
+from html import escape as _xml_escape
 from pathlib import Path
 from datetime import datetime
 
@@ -25,15 +25,35 @@ RDL_NS = "http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinit
 RDL_RD = "http://schemas.microsoft.com/SQLServer/reporting/reportdesigner"
 RDL_DF = "http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition/defaultfontfamily"
 RDL_AM = "http://schemas.microsoft.com/sqlserver/reporting/authoringmetadata"
-
-# Default semantic model workspace — developer updates this
-DEFAULT_WORKSPACE = "Missouri - D1V1"
-DEFAULT_DATASET = "MO_Sales"  # TODO: match per report
+RDL_CL = "http://schemas.microsoft.com/sqlserver/reporting/2010/01/componentdefinition"
 
 
 def safe_name(text: str) -> str:
     """Convert arbitrary text to a safe XML/field identifier."""
     return re.sub(r"\W+", "_", text).strip("_")
+
+
+def safe_comment(text: str) -> str:
+    """Sanitize text for embedding inside an XML comment — replace '--' sequences."""
+    return text.replace("--", "\u2013\u2013")  # replace with en-dashes to preserve meaning
+
+
+def xe(text: str) -> str:
+    """XML-escape text for embedding in element content (escapes &, <, >, \", ')."""
+    return _xml_escape(str(text), quote=False)
+
+
+try:
+    from src.config import cfg as _cfg
+except ImportError:
+    try:
+        from config import cfg as _cfg  # when run directly
+    except ImportError:
+        _cfg = None  # no config available
+
+
+def _get_cfg():
+    return _cfg
 
 
 def guess_semantic_model(report: dict) -> str:
@@ -58,7 +78,7 @@ def guess_semantic_model(report: dict) -> str:
     for model, keywords in model_hints.items():
         if any(kw in name_lower for kw in keywords):
             return model
-    return DEFAULT_DATASET
+    return "MO_Sales"
 
 
 def make_parameter_xml(param: dict) -> tuple:
@@ -81,14 +101,14 @@ def make_parameter_xml(param: dict) -> tuple:
         dval = default_match.group(1).strip()
         default = f"""
       <DefaultValue>
-        <Values><Value>{dval}</Value></Values>
+        <Values><Value>{xe(dval)}</Value></Values>
       </DefaultValue>"""
 
     report_param = f"""    <ReportParameter Name="{name}">
       <DataType>String</DataType>
       <Nullable>{nullable}</Nullable>
       {multi_xml}
-      <Prompt>{label}</Prompt>{default}
+      <Prompt>{xe(label)}</Prompt>{default}
     </ReportParameter>"""
 
     query_param = f"""          <QueryParameter Name="@{name}">
@@ -154,7 +174,7 @@ def make_tablix_xml(report_name: str, columns: list, dataset_name: str) -> str:
                       <Paragraph>
                         <TextRuns>
                           <TextRun>
-                            <Value>{col}</Value>
+                            <Value>{xe(col)}</Value>
                             <Style><FontWeight>Bold</FontWeight></Style>
                           </TextRun>
                         </TextRuns>
@@ -205,8 +225,8 @@ def make_tablix_xml(report_name: str, columns: list, dataset_name: str) -> str:
 
     return f"""      <Tablix Name="MainTable">
         <DataSetName>{ds_safe}</DataSetName>
-        <Top>1.5in</Top>
-        <Left>0.5in</Left>
+        <Top>0.1in</Top>
+        <Left>0.1in</Left>
         <Height>6in</Height>
         <TablixBody>
           <TablixColumns>
@@ -245,17 +265,116 @@ def make_tablix_xml(report_name: str, columns: list, dataset_name: str) -> str:
       </Tablix>"""
 
 
+def _build_param_grid(user_params: list) -> str:
+    """Build <ReportParametersLayout> grid XML.
+    ExecDateTime is always col=0 row=0 (hidden).
+    User params follow starting at col=1.
+    """
+    cells = [
+        "        <CellDefinition>\n"
+        "          <ColumnIndex>0</ColumnIndex>\n"
+        "          <RowIndex>0</RowIndex>\n"
+        "          <ParameterName>ExecDateTime</ParameterName>\n"
+        "        </CellDefinition>"
+    ]
+    col = 1
+    for p in user_params:
+        if "label" not in p:
+            continue
+        pname = safe_name(p["label"])
+        row = col // 4
+        c = col % 4
+        cells.append(
+            f"        <CellDefinition>\n"
+            f"          <ColumnIndex>{c}</ColumnIndex>\n"
+            f"          <RowIndex>{row}</RowIndex>\n"
+            f"          <ParameterName>{pname}</ParameterName>\n"
+            f"        </CellDefinition>"
+        )
+        col += 1
+
+    n_rows = max(1, (col + 3) // 4)
+    cells_xml = "\n".join(cells)
+    return f"""  <ReportParametersLayout>
+    <GridLayoutDefinition>
+      <NumberOfColumns>4</NumberOfColumns>
+      <NumberOfRows>{n_rows}</NumberOfRows>
+      <CellDefinitions>
+{cells_xml}
+      </CellDefinitions>
+    </GridLayoutDefinition>
+  </ReportParametersLayout>"""
+
+
+def _date_range_xml(user_params: list) -> str:
+    """Return the Date Range textbox XML for the page header.
+    Uses StartDate/EndDate if present; otherwise shows a placeholder."""
+    has_start = any(p.get("label", "").lower() in ("start date", "startdate", "begin date") for p in user_params)
+    has_end = any(p.get("label", "").lower() in ("end date", "enddate", "through date") for p in user_params)
+    start_param = "StartDate" if has_start else None
+    end_param = "EndDate" if has_end else None
+
+    if start_param and end_param:
+        date_runs = f"""                  <TextRun>
+                    <Value>Date Range: </Value>
+                    <Style />
+                  </TextRun>
+                  <TextRun>
+                    <Value>=Parameters!{start_param}.Value</Value>
+                    <Style><Format>MM/dd/yyyy</Format></Style>
+                  </TextRun>
+                  <TextRun>
+                    <Value> - </Value>
+                    <Style />
+                  </TextRun>
+                  <TextRun>
+                    <Value>=Parameters!{end_param}.Value</Value>
+                    <Style><Format>MM/dd/yyyy</Format></Style>
+                  </TextRun>"""
+    else:
+        date_runs = """                  <TextRun>
+                    <Value>Date Range: </Value>
+                    <Style />
+                  </TextRun>"""
+
+    return f"""            <Textbox Name="DateRange">
+              <CanGrow>true</CanGrow>
+              <KeepTogether>true</KeepTogether>
+              <Paragraphs>
+                <Paragraph>
+                  <TextRuns>
+{date_runs}
+                  </TextRuns>
+                  <Style><TextAlign>Left</TextAlign></Style>
+                </Paragraph>
+              </Paragraphs>
+              <Top>0.51042in</Top>
+              <Left>1.01389in</Left>
+              <Height>0.39521in</Height>
+              <Width>4.6193in</Width>
+              <ZIndex>2</ZIndex>
+              <Style>
+                <Border><Style>None</Style></Border>
+                <PaddingLeft>2pt</PaddingLeft><PaddingRight>2pt</PaddingRight>
+                <PaddingTop>2pt</PaddingTop><PaddingBottom>2pt</PaddingBottom>
+              </Style>
+            </Textbox>"""
+
+
 def generate_rdl(report: dict) -> str:
     """Generate a complete .rdl XML document for a paginated report."""
-    name = report["name"]
-    summary = report.get("summary", "")
+    name = safe_comment(report["name"])
+    summary = safe_comment(report.get("summary", ""))
     params = report.get("parameters", [])
     layout = report.get("layout", {})
     requirements = report.get("requirements", [])
-    notes = report.get("notes", "")
+    notes = safe_comment(report.get("notes", ""))
     datasource_type = report.get("datasource_type", "semantic_model")
     generated_at = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
     report_id = str(uuid.uuid4())
+
+    # Load config (may be None if pbi.properties missing)
+    c = _get_cfg()
 
     # Collect all columns from layout sections
     all_columns = []
@@ -263,72 +382,99 @@ def generate_rdl(report: dict) -> str:
         all_columns.extend(section.get("columns", []))
     seen = set()
     unique_columns = []
-    for c in all_columns:
-        key = safe_name(c)
+    for col in all_columns:
+        key = safe_name(col)
         if key not in seen and key:
             seen.add(key)
-            unique_columns.append(c)
+            unique_columns.append(col)
 
-    # Requirements as XML comments
+    # Requirements as plain text (nested XML comments are illegal)
     req_lines = "\n".join(
-        f"  <!-- {r.get('id','')}: {r.get('text','')} -->" for r in requirements
+        f"  - {r.get('id','')}: {safe_comment(r.get('text',''))}" for r in requirements
     )
 
-    # Parameters
-    report_params_xml = ""
+    # ── User parameters (from FRD) ──────────────────────────────────────
+    user_rp_parts = []
     query_params_xml = ""
-    if params:
-        rp_parts = []
-        qp_parts = []
-        for p in params:
-            if "label" in p:
-                rp, qp = make_parameter_xml(p)
-                rp_parts.append(rp)
-                qp_parts.append(qp)
-        if rp_parts:
-            report_params_xml = (
-                "  <ReportParameters>\n"
-                + "\n".join(rp_parts)
-                + "\n  </ReportParameters>"
-            )
-            query_params_xml = (
-                "        <QueryParameters>\n"
-                + "\n".join(qp_parts)
-                + "\n        </QueryParameters>"
-            )
+    qp_parts = []
+    for p in params:
+        if "label" in p:
+            rp, qp = make_parameter_xml(p)
+            user_rp_parts.append(rp)
+            qp_parts.append(qp)
+    if qp_parts:
+        query_params_xml = (
+            "        <QueryParameters>\n"
+            + "\n".join(qp_parts)
+            + "\n        </QueryParameters>"
+        )
 
-    # Dataset & DataSource
+    # ── ExecDateTime hidden parameter (always first) ────────────────────
+    exec_dt_param = """    <ReportParameter Name="ExecDateTime">
+      <DataType>String</DataType>
+      <DefaultValue>
+        <Values>
+          <Value>=Code.GetCST()</Value>
+        </Values>
+      </DefaultValue>
+      <Prompt>ReportParameter1</Prompt>
+      <Hidden>true</Hidden>
+      <cl:ComponentMetadata>
+        <cl:HideUpdateNotifications>true</cl:HideUpdateNotifications>
+      </cl:ComponentMetadata>
+    </ReportParameter>"""
+
+    all_rp_parts = [exec_dt_param] + user_rp_parts
+    report_params_xml = (
+        "  <ReportParameters>\n"
+        + "\n".join(all_rp_parts)
+        + "\n  </ReportParameters>"
+    )
+
+    # ── Parameter grid layout ───────────────────────────────────────────
+    param_grid_xml = _build_param_grid(params)
+
+    # ── DataSource & DataSet ────────────────────────────────────────────
     ds_safe = safe_name(name)
     if datasource_type == "semantic_model":
         semantic_model = guess_semantic_model(report)
+        ds_name = c.datasource_name(semantic_model) if c else f"MissouriD1V1_{semantic_model}"
+        connect_str = c.connect_string(semantic_model) if c else (
+            f'Data Source=pbiazure://api.powerbi.com/;'
+            f'Identity Provider="https://login.microsoftonline.com/organizations, '
+            f'https://analysis.windows.net/powerbi/api, TODO_TENANT_ID";'
+            f'Initial Catalog=sobe_wowvirtualserver-TODO_GUID;'
+            f'Integrated Security=ClaimsToken'
+        )
+        workspace = c.workspace_name if c else "Missouri - D1V1"
+
         datasource_xml = f"""  <DataSources>
-    <DataSource Name="{safe_name(semantic_model)}">
+    <DataSource Name="{ds_name}">
       <rd:SecurityType>None</rd:SecurityType>
       <ConnectionProperties>
         <DataProvider>PBIDATASET</DataProvider>
-        <!-- TODO: Update ConnectString with your Fabric workspace/dataset GUID -->
-        <ConnectString>Data Source=pbiazure://api.powerbi.com/;Identity Provider="https://login.microsoftonline.com/organizations, https://analysis.windows.net/powerbi/api, TODO_TENANT_ID";Initial Catalog=sobe_wowvirtualserver-TODO_DATASET_GUID;Integrated Security=ClaimsToken</ConnectString>
+        <ConnectString>{xe(connect_str)}</ConnectString>
       </ConnectionProperties>
       <rd:DataSourceID>{str(uuid.uuid4())}</rd:DataSourceID>
-      <rd:PowerBIWorkspaceName>{DEFAULT_WORKSPACE}</rd:PowerBIWorkspaceName>
-      <rd:PowerBIDatasetName>{semantic_model}</rd:PowerBIDatasetName>
+      <rd:PowerBIWorkspaceName>{xe(workspace)}</rd:PowerBIWorkspaceName>
+      <rd:PowerBIDatasetName>{xe(semantic_model)}</rd:PowerBIDatasetName>
     </DataSource>
   </DataSources>"""
 
         dax_query = make_dax_query(name, unique_columns, ds_safe)
         fields_xml = "\n".join(
-            f"""        <Field Name="{safe_name(c)}">
+            f"""        <Field Name="{safe_name(col)}">
           <rd:TypeName>System.String</rd:TypeName>
-          <DataField>TODO_Table[{c}]</DataField>
+          <DataField>TODO_Table[{xe(col)}]</DataField>
         </Field>"""
-            for c in unique_columns
+            for col in unique_columns
         )
         dataset_xml = f"""  <DataSets>
     <DataSet Name="{ds_safe}">
       <Query>
-        <DataSourceName>{safe_name(semantic_model)}</DataSourceName>
+        <DataSourceName>{ds_name}</DataSourceName>
 {query_params_xml}
-        <CommandText>{dax_query}</CommandText>
+        <CommandText>{xe(dax_query)}</CommandText>
       </Query>
       <Fields>
 {fields_xml}
@@ -352,34 +498,35 @@ def generate_rdl(report: dict) -> str:
     </DataSource>
   </DataSources>"""
 
-        select_cols = ",\n    ".join(f"-- TODO_schema.TODO_table.[{c}] AS \"{c}\"" for c in unique_columns)
+        select_cols = ",\n    ".join(
+            f"-- TODO_schema.TODO_table.[{col}] AS \"{col}\"" for col in unique_columns
+        )
         where_hints = [
             r["text"] for r in requirements
-            if any(kw in r["text"].lower() for kw in ["shall include", "shall exclude", "having", "status of", "equal to"])
+            if any(kw in r["text"].lower() for kw in
+                   ["shall include", "shall exclude", "having", "status of", "equal to"])
         ]
-        where_block = ""
-        if where_hints:
-            where_block = "WHERE\n  " + "\n  -- AND ".join(f"/* {h} */" for h in where_hints)
+        where_block = (
+            "WHERE\n  " + "\n  -- AND ".join(f"/* {h} */" for h in where_hints)
+            if where_hints else ""
+        )
         fields_xml = "\n".join(
-            f"""        <Field Name="{safe_name(c)}">
+            f"""        <Field Name="{safe_name(col)}">
           <rd:TypeName>System.String</rd:TypeName>
-          <DataField>{c}</DataField>
+          <DataField>{xe(col)}</DataField>
         </Field>"""
-            for c in unique_columns
+            for col in unique_columns
+        )
+        sql_stub = (
+            f"-- AUTO-GENERATED STUB: replace with actual SQL\n"
+            f"SELECT\n    {select_cols}\nFROM\n    TODO_schema.TODO_table\n{where_block}"
         )
         dataset_xml = f"""  <DataSets>
     <DataSet Name="{ds_safe}">
       <Query>
         <DataSourceName>{db_name}</DataSourceName>
 {query_params_xml}
-        <CommandText>
--- AUTO-GENERATED STUB: replace with actual SQL
-SELECT
-    {select_cols}
-FROM
-    TODO_schema.TODO_table
-{where_block}
-        </CommandText>
+        <CommandText>{xe(sql_stub)}</CommandText>
       </Query>
       <Fields>
 {fields_xml}
@@ -387,33 +534,57 @@ FROM
     </DataSet>
   </DataSets>"""
 
-    # Report body tablix
+    # ── Body tablix ────────────────────────────────────────────────────
     tablix_xml = make_tablix_xml(name, unique_columns, name)
 
-    # Multi-section tables (one tablix per layout section if multiple sections)
-    section_tablixes = []
-    if len(layout) > 1:
-        y_offset = 1.5
-        for sec_name, sec_data in layout.items():
-            cols = sec_data.get("columns", [])
-            if not cols:
-                continue
-            safe_sec = safe_name(sec_name)[:20]
-            col_w = max(0.75, min(2.0, 7.5 / len(cols)))
-            section_tablixes.append(f"      <!-- Section: {sec_name} -->")
-        # Use the combined tablix for now (developer can split later)
+    # Estimate body height (rows ~ columns * 3, capped at 250)
+    est_rows = max(20, len(unique_columns) * 3)
+    body_height = round(min(est_rows, 250) * 0.25 + 1.0, 2)
+
+    # ── Embedded logo ──────────────────────────────────────────────────
+    logo_b64 = c.logo_b64 if c else ""
+    if logo_b64:
+        embedded_images_xml = f"""  <EmbeddedImages>
+    <EmbeddedImage Name="molotterylogov">
+      <MIMEType>image/png</MIMEType>
+      <ImageData>{logo_b64}</ImageData>
+    </EmbeddedImage>
+  </EmbeddedImages>"""
+        logo_item_xml = """            <Image Name="Logo">
+              <Source>Embedded</Source>
+              <Value>molotterylogov</Value>
+              <Sizing>FitProportional</Sizing>
+              <Left>0.01389in</Left>
+              <Height>0.90563in</Height>
+              <Width>1in</Width>
+              <ZIndex>3</ZIndex>
+              <Style><Border><Style>None</Style></Border></Style>
+            </Image>"""
+    else:
+        embedded_images_xml = ""
+        logo_item_xml = ""
+
+    # ── Date range row in header (shows StartDate/EndDate if present) ──
+    date_range_item_xml = _date_range_xml(params)
+
+    # ── Page dimensions from config ────────────────────────────────────
+    page_w = c.page_width if c else "11in"
+    page_h = c.page_height if c else "8.5in"
+    margin = c.margin if c else "0.2in"
+    hdr_h = c.header_height if c else "0.90563in"
+    ftr_h = c.footer_height if c else "0.42486in"
 
     rdl = f"""<?xml version="1.0" encoding="utf-8"?>
 <!--
   ============================================================
-  Report   : {name}
-  Folder   : {report.get('folder', '')} / {report.get('target_folder', '')}
-  Format   : Paginated (.rdl)
+  Report    : {name}
+  Folder    : {safe_comment(report.get('folder', ''))} / {safe_comment(report.get('target_folder', ''))}
+  Format    : Paginated (.rdl)
   DataSource: {datasource_type}
-  Generated: {generated_at}
-  Summary  : {summary}
-  Notes    : {notes}
-  Legacy   : {report.get('legacy_reports', '')}
+  Generated : {generated_at}
+  Summary   : {summary}
+  Notes     : {notes}
+  Legacy    : {safe_comment(report.get('legacy_reports', ''))}
 
   REQUIREMENTS:
 {req_lines}
@@ -422,13 +593,14 @@ FROM
 <Report MustUnderstand="df"
   xmlns="{RDL_NS}"
   xmlns:rd="{RDL_RD}"
+  xmlns:cl="{RDL_CL}"
   xmlns:df="{RDL_DF}"
   xmlns:am="{RDL_AM}">
 
   <rd:ReportUnitType>Inch</rd:ReportUnitType>
   <rd:ReportID>{report_id}</rd:ReportID>
   <am:AuthoringMetadata>
-    <am:CreatedBy><am:Name>FRD-AutoGenerator</am:Name><am:Version>1.0.0</am:Version></am:CreatedBy>
+    <am:CreatedBy><am:Name>FRD-AutoGenerator</am:Name><am:Version>2.0.0</am:Version></am:CreatedBy>
     <am:LastModifiedTimestamp>{generated_at}</am:LastModifiedTimestamp>
   </am:AuthoringMetadata>
   <df:DefaultFontFamily>Segoe UI</df:DefaultFontFamily>
@@ -438,138 +610,174 @@ FROM
 
 {dataset_xml}
 
-{report_params_xml}
-
   <ReportSections>
     <ReportSection>
       <Body>
+        <Height>{body_height}in</Height>
         <ReportItems>
-
-          <!-- Report Title -->
-          <Textbox Name="ReportTitle">
-            <CanGrow>true</CanGrow>
-            <Top>0.1in</Top><Left>0.5in</Left>
-            <Height>0.4in</Height><Width>9in</Width>
-            <Paragraphs>
-              <Paragraph>
-                <TextRuns>
-                  <TextRun>
-                    <Value>{name}</Value>
-                    <Style><FontSize>14pt</FontSize><FontWeight>Bold</FontWeight></Style>
-                  </TextRun>
-                </TextRuns>
-              </Paragraph>
-            </Paragraphs>
-          </Textbox>
-
-          <!-- Run Date -->
-          <Textbox Name="RunDate">
-            <CanGrow>true</CanGrow>
-            <Top>0.1in</Top><Left>9in</Left>
-            <Height>0.4in</Height><Width>2in</Width>
-            <Paragraphs>
-              <Paragraph>
-                <TextRuns>
-                  <TextRun>
-                    <Value>=Format(Globals!ExecutionTime, "MM/dd/yyyy")</Value>
-                    <Style><FontSize>9pt</FontSize></Style>
-                  </TextRun>
-                </TextRuns>
-                <Style><TextAlign>Right</TextAlign></Style>
-              </Paragraph>
-            </Paragraphs>
-          </Textbox>
 
 {tablix_xml}
 
         </ReportItems>
-        <Style/>
+        <Style>
+          <Border><Style>None</Style></Border>
+        </Style>
       </Body>
+      <Width>10.5in</Width>
       <Page>
-        <PageWidth>11in</PageWidth>
-        <PageHeight>8.5in</PageHeight>
-        <LeftMargin>0.5in</LeftMargin>
-        <RightMargin>0.5in</RightMargin>
-        <TopMargin>0.5in</TopMargin>
-        <BottomMargin>0.5in</BottomMargin>
-        <Style><BackgroundColor>White</BackgroundColor></Style>
         <PageHeader>
+          <Height>{hdr_h}</Height>
+          <PrintOnFirstPage>true</PrintOnFirstPage>
+          <PrintOnLastPage>true</PrintOnLastPage>
           <ReportItems>
-            <Textbox Name="PageHdr_Title">
+            <Textbox Name="ReportTitle">
               <CanGrow>true</CanGrow>
-              <Top>0.05in</Top><Left>0.1in</Left>
-              <Height>0.3in</Height><Width>7in</Width>
+              <KeepTogether>true</KeepTogether>
+              <Paragraphs>
+                <Paragraph>
+                  <TextRuns>
+                    <TextRun>
+                      <Value>{xe(name)}</Value>
+                      <Style>
+                        <FontStyle>Normal</FontStyle>
+                        <FontFamily>Segoe UI Light</FontFamily>
+                        <FontSize>14pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <TextDecoration>None</TextDecoration>
+                      </Style>
+                    </TextRun>
+                  </TextRuns>
+                  <Style />
+                </Paragraph>
+              </Paragraphs>
+              <Left>1.01389in</Left>
+              <Height>0.51042in</Height>
+              <Width>4.6193in</Width>
+              <Style>
+                <Border><Style>None</Style></Border>
+                <PaddingLeft>2pt</PaddingLeft><PaddingRight>2pt</PaddingRight>
+                <PaddingTop>2pt</PaddingTop><PaddingBottom>2pt</PaddingBottom>
+              </Style>
+            </Textbox>
+            <Textbox Name="ExecutionTime">
+              <CanGrow>true</CanGrow>
+              <KeepTogether>true</KeepTogether>
+              <Paragraphs>
+                <Paragraph>
+                  <TextRuns>
+                    <TextRun>
+                      <Value>Run Datetime: </Value>
+                      <Style />
+                    </TextRun>
+                  </TextRuns>
+                  <Style><TextAlign>Left</TextAlign></Style>
+                </Paragraph>
+                <Paragraph>
+                  <TextRuns>
+                    <TextRun>
+                      <Value>=Parameters!ExecDateTime.Value</Value>
+                      <Style />
+                    </TextRun>
+                  </TextRuns>
+                  <Style><TextAlign>Left</TextAlign></Style>
+                </Paragraph>
+              </Paragraphs>
+              <Left>6.97916in</Left>
+              <Height>0.51042in</Height>
+              <Width>2.54167in</Width>
+              <ZIndex>1</ZIndex>
+              <Style>
+                <Border><Style>None</Style></Border>
+                <PaddingLeft>2pt</PaddingLeft><PaddingRight>2pt</PaddingRight>
+                <PaddingTop>2pt</PaddingTop><PaddingBottom>2pt</PaddingBottom>
+              </Style>
+            </Textbox>
+{date_range_item_xml}
+{logo_item_xml}
+          </ReportItems>
+          <Style>
+            <Border><Style>None</Style></Border>
+          </Style>
+        </PageHeader>
+        <PageFooter>
+          <Height>{ftr_h}</Height>
+          <PrintOnFirstPage>true</PrintOnFirstPage>
+          <PrintOnLastPage>true</PrintOnLastPage>
+          <ReportItems>
+            <Textbox Name="FooterReportName">
+              <CanGrow>true</CanGrow>
+              <KeepTogether>true</KeepTogether>
               <Paragraphs>
                 <Paragraph>
                   <TextRuns>
                     <TextRun>
                       <Value>=Globals!ReportName</Value>
-                      <Style><FontSize>9pt</FontWeight></Style>
+                      <Style />
                     </TextRun>
                   </TextRuns>
+                  <Style />
                 </Paragraph>
               </Paragraphs>
+              <Top>0.06944in</Top>
+              <Height>0.25in</Height>
+              <Width>3.40625in</Width>
+              <Style>
+                <Border><Style>None</Style></Border>
+                <PaddingLeft>2pt</PaddingLeft><PaddingRight>2pt</PaddingRight>
+                <PaddingTop>2pt</PaddingTop><PaddingBottom>2pt</PaddingBottom>
+              </Style>
             </Textbox>
-            <Textbox Name="PageHdr_Date">
+            <Textbox Name="FooterPageNumber">
               <CanGrow>true</CanGrow>
-              <Top>0.05in</Top><Left>8in</Left>
-              <Height>0.3in</Height><Width>2.5in</Width>
+              <KeepTogether>true</KeepTogether>
               <Paragraphs>
                 <Paragraph>
                   <TextRuns>
-                    <TextRun>
-                      <Value>=Format(Globals!ExecutionTime, "MM/dd/yyyy HH:mm:ss")</Value>
-                      <Style><FontSize>8pt</FontSize></Style>
-                    </TextRun>
+                    <TextRun><Value>Page </Value><Style /></TextRun>
+                    <TextRun><Value>=Globals!OverallPageNumber</Value><Style /></TextRun>
+                    <TextRun><Value> of </Value><Style /></TextRun>
+                    <TextRun><Value>=Globals!OverallTotalPages</Value><Style /></TextRun>
                   </TextRuns>
-                  <Style><TextAlign>Right</TextAlign></Style>
+                  <Style><TextAlign>Left</TextAlign></Style>
                 </Paragraph>
               </Paragraphs>
+              <Top>0.06944in</Top>
+              <Left>8.34375in</Left>
+              <Height>0.25in</Height>
+              <Width>1.17708in</Width>
+              <ZIndex>1</ZIndex>
+              <Style>
+                <Border><Style>None</Style></Border>
+                <PaddingLeft>2pt</PaddingLeft><PaddingRight>2pt</PaddingRight>
+                <PaddingTop>2pt</PaddingTop><PaddingBottom>2pt</PaddingBottom>
+              </Style>
             </Textbox>
           </ReportItems>
-          <PrintOnFirstPage>true</PrintOnFirstPage>
-          <PrintOnLastPage>true</PrintOnLastPage>
-        </PageHeader>
-        <PageFooter>
-          <ReportItems>
-            <Textbox Name="PageFtr_Name">
-              <CanGrow>true</CanGrow>
-              <Top>0.05in</Top><Left>0.1in</Left>
-              <Height>0.3in</Height><Width>7in</Width>
-              <Paragraphs>
-                <Paragraph>
-                  <TextRuns>
-                    <TextRun>
-                      <Value>{name}</Value>
-                      <Style><FontSize>8pt</FontSize></Style>
-                    </TextRun>
-                  </TextRuns>
-                </Paragraph>
-              </Paragraphs>
-            </Textbox>
-            <Textbox Name="PageFtr_Page">
-              <CanGrow>true</CanGrow>
-              <Top>0.05in</Top><Left>8.5in</Left>
-              <Height>0.3in</Height><Width>2in</Width>
-              <Paragraphs>
-                <Paragraph>
-                  <TextRuns>
-                    <TextRun>
-                      <Value>=Globals!PageNumber &amp; " of " &amp; Globals!TotalPages</Value>
-                      <Style><FontSize>8pt</FontSize></Style>
-                    </TextRun>
-                  </TextRuns>
-                  <Style><TextAlign>Right</TextAlign></Style>
-                </Paragraph>
-              </Paragraphs>
-            </Textbox>
-          </ReportItems>
-          <PrintOnFirstPage>true</PrintOnFirstPage>
-          <PrintOnLastPage>true</PrintOnLastPage>
+          <Style>
+            <Border><Style>None</Style></Border>
+          </Style>
         </PageFooter>
+        <PageHeight>{page_h}</PageHeight>
+        <PageWidth>{page_w}</PageWidth>
+        <LeftMargin>{margin}</LeftMargin>
+        <RightMargin>{margin}</RightMargin>
+        <TopMargin>{margin}</TopMargin>
+        <BottomMargin>{margin}</BottomMargin>
+        <Style />
       </Page>
     </ReportSection>
   </ReportSections>
+
+{report_params_xml}
+
+{param_grid_xml}
+
+  <Code>Public Function GetCST As DateTime
+return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time"))
+End Function
+</Code>
+
+{embedded_images_xml}
 
   <Language>en-US</Language>
 

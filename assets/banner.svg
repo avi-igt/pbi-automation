@@ -113,12 +113,15 @@
   <!-- Node: JSON -->
   <rect x="706" y="100" width="56" height="30" rx="6" fill="#1e1e1e" stroke="#FFFFFF" stroke-width="1.5" opacity="0.7"/>
   <text x="734" y="119" font-family="monospace" font-size="11" fill="#FFFFFF" text-anchor="middle">JSON</text>
-  <!-- Fork left -->
+  <!-- Fork left → .rdl -->
   <line x1="706" y1="115" x2="692" y2="128" stroke="#FF6600" stroke-width="1.2" opacity="0.7"/>
   <polygon points="688,125 684,133 694,131" fill="#FF6600" opacity="0.7"/>
-  <!-- Fork right -->
+  <!-- Fork right → .pbip -->
   <line x1="762" y1="115" x2="776" y2="128" stroke="#FF8C00" stroke-width="1.2" opacity="0.7"/>
   <polygon points="776,125 780,133 786,131" fill="#FF8C00" opacity="0.7"/>
+  <!-- Fork down → .md -->
+  <line x1="734" y1="130" x2="734" y2="143" stroke="#666666" stroke-width="1.2" stroke-dasharray="3,2" opacity="0.7"/>
+  <polygon points="730,143 734,151 738,143" fill="#666666" opacity="0.6"/>
 
   <!-- Node: .rdl -->
   <rect x="644" y="136" width="48" height="28" rx="6" fill="#1e1e1e" stroke="#FF6600" stroke-width="1.5" opacity="0.9"/>
@@ -127,4 +130,8 @@
   <!-- Node: .pbip -->
   <rect x="770" y="136" width="50" height="28" rx="6" fill="#1e1e1e" stroke="#FF8C00" stroke-width="1.5" opacity="0.9"/>
   <text x="795" y="154" font-family="monospace" font-size="11" fill="#FF8C00" text-anchor="middle" font-weight="bold">.pbip</text>
+
+  <!-- Node: .md (review docs, dashed) -->
+  <rect x="710" y="153" width="48" height="26" rx="6" fill="#1e1e1e" stroke="#666666" stroke-width="1.2" stroke-dasharray="4,3" opacity="0.85"/>
+  <text x="734" y="170" font-family="monospace" font-size="11" fill="#666666" text-anchor="middle" font-weight="bold">.md</text>
 </svg>

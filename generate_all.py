@@ -7,9 +7,10 @@ Usage:
     python generate_all.py path/to/FRD.docx -o ./output  # custom output dir
 
 Steps:
-    1. Parse FRD .docx → output/json/frd_parsed.json
-    2. Generate .rdl files for all Paginated reports → output/rdl/
-    3. Generate .pbip folders for all Visual reports → output/pbip/
+    1. Parse FRD .docx  →  output/json/frd_parsed.json   ← review & edit here
+    2. Generate .rdl    →  output/rdl/
+    3. Generate .pbip   →  output/pbip/
+    4. Generate .md     →  output/specs/  (human-readable review docs)
 """
 
 import argparse
@@ -119,6 +120,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from src.frd_parser import parse_frd
 from src.rdl_generator import generate_all_rdl
 from src.pbip_generator import generate_all_pbip
+from src.spec_generator import generate_all_specs
 
 # Default FRD file — place the .docx in the same directory as this script
 DEFAULT_FRD = Path(__file__).parent / "MO - Performance Wizard Ad Hoc Reporting FRD v1.0.docx"
@@ -140,8 +142,8 @@ def main():
     )
     ap.add_argument(
         "--only",
-        choices=["parse", "rdl", "pbip"],
-        help="Run only one step instead of the full pipeline",
+        choices=["parse", "rdl", "pbip", "spec"],
+        help="Run only one step: parse=FRD→JSON, rdl=JSON→.rdl, pbip=JSON→.pbip, spec=JSON→.md docs",
     )
     ap.add_argument(
         "--report",
@@ -160,10 +162,10 @@ def main():
     t_start = time.time()
 
     # -----------------------------------------------------------------------
-    # Step 1: Parse FRD
+    # Step 1: Parse FRD → frd_parsed.json  (the human-editable checkpoint)
     # -----------------------------------------------------------------------
-    if args.only in (None, "parse", "rdl", "pbip"):
-        _step(1, 3, f"Parsing FRD  ·  {frd_path.name}")
+    if args.only in (None, "parse", "rdl", "pbip", "spec"):
+        _step(1, 4, f"Parsing FRD  ·  {frd_path.name}")
         t = time.time()
         frd = parse_frd(str(frd_path))
         elapsed = time.time() - t
@@ -178,64 +180,88 @@ def main():
         if frd.get("unknown_count"):
             _warn(f"{frd['unknown_count']} unknown format — check report_format in JSON")
         _ok(f"JSON  →  {_c(_GRAY, str(json_out))}")
+        _info("Tip: edit frd_parsed.json before running --only rdl/pbip to customise output")
+
+        if args.only == "parse":
+            _done(time.time() - t_start)
+            return
     else:
+        # Generators called with --only rdl/pbip/spec load the existing JSON
         json_out = output_base / "json" / "frd_parsed.json"
         if not json_out.exists():
-            print(f"  {_c(_O, '✖')}  Run without --only first to generate {json_out}")
+            print(f"  {_c(_O, '✖')}  {json_out} not found — run without --only first")
             sys.exit(1)
         with open(json_out) as f:
             frd = json.load(f)
 
-    # Apply report filter
+    # Apply --report filter
     if args.report:
-        frd_filtered = dict(frd)
-        frd_filtered["reports"] = [
-            r for r in frd["reports"]
-            if args.report.lower() in r["name"].lower()
-        ]
-        _info(f"Filter: {_c(_W, str(len(frd_filtered['reports'])))} reports matching {_c(_Y, repr(args.report))}")
-    else:
-        frd_filtered = frd
+        frd = dict(frd)
+        frd["reports"] = [r for r in frd["reports"] if args.report.lower() in r["name"].lower()]
+        _info(f"Filter: {_c(_W, str(len(frd['reports'])))} reports matching {_c(_Y, repr(args.report))}")
 
     # -----------------------------------------------------------------------
-    # Step 2: Generate RDL (Paginated reports)
+    # Step 2: Generate .rdl  (Paginated reports)
     # -----------------------------------------------------------------------
     if args.only in (None, "rdl"):
-        _step(2, 3, "Generating  .rdl  (Paginated reports)")
+        _step(2, 4, "Generating  .rdl  (Paginated reports)")
         t = time.time()
         rdl_dir = output_base / "rdl"
-        rdl_files = generate_all_rdl(frd_filtered, str(rdl_dir))
+        rdl_files = generate_all_rdl(frd, str(rdl_dir))
         elapsed = time.time() - t
         _ok(f"{_c(_O, str(len(rdl_files)))} .rdl files  →  {_c(_GRAY, str(rdl_dir))}  {_c(_GRAY, f'({elapsed:.1f}s)')}")
         for f in rdl_files[:4]:
             _info(str(Path(f).relative_to(output_base)))
         if len(rdl_files) > 4:
             _info(f"… and {len(rdl_files) - 4} more")
+        if args.only == "rdl":
+            _done(time.time() - t_start)
+            return
 
     # -----------------------------------------------------------------------
-    # Step 3: Generate PBIP (Visual reports)
+    # Step 3: Generate .pbip  (Visual reports)
     # -----------------------------------------------------------------------
     if args.only in (None, "pbip"):
-        _step(3, 3, "Generating  .pbip  (Visual reports)")
+        _step(3, 4, "Generating  .pbip  (Visual reports)")
         t = time.time()
         pbip_dir = output_base / "pbip"
-        pbip_dirs = generate_all_pbip(frd_filtered, str(pbip_dir))
+        pbip_dirs = generate_all_pbip(frd, str(pbip_dir))
         elapsed = time.time() - t
-        _ok(f"{_c(_Y, str(len(pbip_dirs)))} .pbip report folders  →  {_c(_GRAY, str(pbip_dir))}  {_c(_GRAY, f'({elapsed:.1f}s)')}")
+        _ok(f"{_c(_Y, str(len(pbip_dirs)))} .pbip folders  →  {_c(_GRAY, str(pbip_dir))}  {_c(_GRAY, f'({elapsed:.1f}s)')}")
         for d in pbip_dirs[:4]:
             _info(str(Path(d).relative_to(output_base)))
         if len(pbip_dirs) > 4:
             _info(f"… and {len(pbip_dirs) - 4} more")
+        if args.only == "pbip":
+            _done(time.time() - t_start)
+            return
 
     # -----------------------------------------------------------------------
-    # Done
+    # Step 4: Generate .md spec docs  (human-readable review artifacts)
     # -----------------------------------------------------------------------
-    total_elapsed = time.time() - t_start
+    if args.only in (None, "spec"):
+        _step(4, 4, "Generating  .md  review docs")
+        t = time.time()
+        spec_files = generate_all_specs(str(frd_path), str(output_base))
+        elapsed = time.time() - t
+        if spec_files:
+            _ok(f"{_c(_W, str(len(spec_files)))} spec files  →  {_c(_GRAY, str(output_base / 'specs'))}  {_c(_GRAY, f'({elapsed:.1f}s)')}")
+            for sf in spec_files[:3]:
+                _info(str(Path(sf).name))
+            if len(spec_files) > 3:
+                _info(f"… and {len(spec_files) - 3} more")
+        else:
+            _warn("No spec files generated — check FRD path and python-docx installation")
+
+    _done(time.time() - t_start)
+
+
+def _done(total_elapsed: float):
     print()
     print(_c(_GRAY, f"  {'─' * 60}"))
     print(f"  {_c(_G, '✔')}  {_c(_BOLD + _W, 'Pipeline complete')}  {_c(_GRAY, f'·  {total_elapsed:.1f}s total')}")
-    print(_c(_GRAY, "  Review output/ files before importing into Power BI / Fabric."))
-    print(_c(_GRAY, "  Each .pbip folder has a README.md with a developer TODO checklist."))
+    print(_c(_GRAY, "  Review output/ before importing into Power BI / Fabric."))
+    print(_c(_GRAY, "  Tip: edit output/json/frd_parsed.json to adjust fields, then re-run."))
     print(_c(_GRAY, f"  {'─' * 60}"))
     print()
 
