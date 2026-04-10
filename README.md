@@ -12,7 +12,7 @@
 
 **Turn a Functional Requirements Document into Power BI report files in seconds — not days.**
 
-[Quick Start](#quick-start) · [Pipeline](#pipeline) · [Output Formats](#output-file-formats) · [Extending](#extending-the-tool) · [Troubleshooting](#troubleshooting)
+[Quick Start](#quick-start) · [Pipeline](#pipeline) · [After Generation](#after-generation) · [Output Formats](#output-file-formats) · [Extending](#extending-the-tool) · [Troubleshooting](#troubleshooting)
 
 </div>
 
@@ -115,6 +115,32 @@ python -m src.frd_parser   "FRD.docx"              -o output/json/frd_parsed.jso
 python -m src.rdl_generator  output/json/frd_parsed.json  -o output/rdl
 python -m src.pbip_generator output/json/frd_parsed.json  -o output/pbip
 ```
+
+---
+
+## After Generation
+
+The tool generates correct **structure and wiring** — you only need to fill in the **data bindings**, which come from your Fabric workspace.
+
+### Paginated Reports (`.rdl`)
+
+| Step | What to do |
+|---|---|
+| 1 | Open the `.rdl` in **Power BI Report Builder** |
+| 2 | Update `<ConnectString>` with your Fabric workspace + dataset GUID |
+| 3 | Replace `TODO_Table[ColumnName]` placeholders in the DAX query with real semantic model table/column names (or real SQL for DB2 reports) |
+| 4 | Validate layout and publish to Fabric |
+
+### Visual Reports (`.pbip`)
+
+| Step | What to do |
+|---|---|
+| 1 | Open the report folder's **`README.md`** — it contains the full requirements list and a per-report developer checklist |
+| 2 | Verify `definition.pbir` → `byPath` points to the correct `.SemanticModel` folder (the tool auto-selects based on report name — confirm it is right) |
+| 3 | In each `visual.json`, replace `TODO_Table` with the actual entity/table name from your semantic model |
+| 4 | Open the `.pbip` in **Power BI Desktop (Fabric mode)** and validate visuals |
+
+> **Tip:** Use `--report "Report Name"` to generate and test one report at a time before running the full pipeline.
 
 ---
 
