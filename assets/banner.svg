@@ -66,15 +66,12 @@
   <!-- Divider -->
   <rect x="88" y="72" width="280" height="1.5" fill="url(#brandOrange)" opacity="0.6" rx="1"/>
 
-  <!-- ── Tool name ── -->
-  <!-- "pbi" in brand orange, large and bold -->
-  <text x="54" y="140" font-family="'Segoe UI', Arial, sans-serif"
-        font-size="72" font-weight="900" letter-spacing="-3"
-        fill="url(#brandOrange)" filter="url(#logoGlow)">pbi</text>
-  <!-- "-automation" in white, light weight -->
-  <text x="194" y="140" font-family="'Segoe UI', Arial, sans-serif"
-        font-size="52" font-weight="200" letter-spacing="-1"
-        fill="url(#textFade)">-automation</text>
+  <!-- ── Tool name — same font weight/size, colour split between pbi and -automation ── -->
+  <text x="54" y="144" font-family="'Segoe UI', Arial, sans-serif"
+        font-size="64" font-weight="900" letter-spacing="-2"
+        filter="url(#logoGlow)">
+    <tspan fill="url(#brandOrange)">pbi</tspan><tspan fill="url(#textFade)">-automation</tspan>
+  </text>
 
   <!-- Tagline -->
   <text x="56" y="165" font-family="'Segoe UI', Arial, sans-serif"

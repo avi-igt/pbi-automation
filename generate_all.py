@@ -44,17 +44,15 @@ def _c(code: str, text: str) -> str:
     return text
 
 
-# "pbi" block art — "-automation" is injected as text on the middle line
-_PBI_ART = [
-    r"  ██████╗ ██████╗ ██╗     ",
-    r"  ██╔══██╗██╔══██╗██║     ",
-    r"  ██████╔╝██████╔╝██║     ",
-    r"  ██╔═══╝ ██╔══██╗██║     ",
-    r"  ██║     ██████╔╝███████╗",
-    r"  ╚═╝     ╚═════╝ ╚══════╝",
+# "pbi-automation" full block art — hyphen bar visible on middle rows 2-3
+_TOOL_ART = [
+    r"  ██████╗ ██████╗ ██╗       █████╗ ██╗   ██╗████████╗ ██████╗ ███╗   ███╗ █████╗ ████████╗██╗  ██████╗ ███╗  ██╗",
+    r"  ██╔══██╗██╔══██╗██║      ██╔══██╗██║   ██║╚══██╔══╝██╔═══██╗████╗ ████║██╔══██╗╚══██╔══╝██║ ██╔═══██╗████╗ ██║",
+    r"  ██████╔╝██████╔╝██║ ─── ███████║██║   ██║   ██║   ██║   ██║██╔████╔██║███████║   ██║   ██║ ██║   ██║██╔██╗██║",
+    r"  ██╔═══╝ ██╔══██╗██║ ─── ██╔══██║██║   ██║   ██║   ██║   ██║██║╚██╔╝██║██╔══██║   ██║   ██║ ██║   ██║██║╚████║",
+    r"  ██║     ██████╔╝███████╗  ██║  ██║╚██████╔╝   ██║   ╚██████╔╝██║ ╚═╝ ██║██║  ██║   ██║   ██║ ╚██████╔╝██║ ╚███║",
+    r"  ╚═╝     ╚═════╝ ╚══════╝  ╚═╝  ╚═╝ ╚═════╝    ╚═╝    ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═════╝ ╚═╝  ╚══╝",
 ]
-# Line index (0-based) on which to append "-automation"
-_HYPHEN_LINE = 2
 
 # Star symbol for Brightstar
 _STAR = "★"
@@ -73,13 +71,9 @@ def print_banner():
 
     # ── Tool name ASCII art ──────────────────────────────────────────────
     colours = [_Y, _Y, _O, _O, _O, _W]
-    for i, line in enumerate(_PBI_ART):
+    for i, line in enumerate(_TOOL_ART):
         c = colours[min(i, len(colours) - 1)]
-        suffix = ""
-        if i == _HYPHEN_LINE:
-            # Append "-automation" in white on the middle line
-            suffix = _c(_W, "-automation")
-        print(f"{c}{_BOLD}{line}{_RESET}{suffix}")
+        print(f"{c}{_BOLD}{line}{_RESET}")
 
     # ── Tagline strip ───────────────────────────────────────────────────
     print(_c(_GRAY, "  " + "─" * 72))
