@@ -20,7 +20,7 @@
 
 ## Why pbi-automation?
 
-A typical FRD describes dozens of Power BI reports: layouts, parameters, filters, requirements. Translating each one manually into `.rdl` XML or `.pbip` JSON takes developers hours per report.
+A typical FRD describes Power BI reports with various attributes: layouts, parameters, filters, requirements. Translating each one manually into `.rdl` XML or `.pbip` JSON takes developers hours per report.
 
 **pbi-automation parses the FRD once and generates all report scaffolding automatically** — correct RDL structure, proper semantic model bindings, page-per-section PBIP layouts, and per-report developer checklists. Developers start from a working skeleton instead of a blank canvas.
 
@@ -286,7 +286,7 @@ Edit `definition.pbir` manually, or add report-specific keywords to `_infer_sema
 
 <div align="center">
 
-★ Built by the **Brightstar Lottery** Power BI team.
+★ Built by the **Brightstar Lottery** Performance Wizard team.
 
 [![GitHub](https://img.shields.io/badge/GitHub-avi--igt%2Fpbi--automation-181717?style=flat-square&logo=github)](https://github.com/avi-igt/pbi-automation)
 [![MIT License](https://img.shields.io/badge/License-MIT-06d6a0?style=flat-square)](LICENSE)
