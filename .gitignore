@@ -1,0 +1,21 @@
+# Generated output — review locally, don't commit
+output/
+
+# FRD source documents — may contain sensitive business data
+*.docx
+*.doc
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="200" viewBox="0 0 900 200">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f0f1a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a1a35;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#F2C811;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f97316;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="pipeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:0.8" />
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="textGlow">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="200" fill="url(#bgGrad)" rx="12"/>
+
+  <!-- Decorative grid lines -->
+  <g opacity="0.06" stroke="#ffffff" stroke-width="0.5">
+    <line x1="0" y1="40" x2="900" y2="40"/>
+    <line x1="0" y1="80" x2="900" y2="80"/>
+    <line x1="0" y1="120" x2="900" y2="120"/>
+    <line x1="0" y1="160" x2="900" y2="160"/>
+    <line x1="150" y1="0" x2="150" y2="200"/>
+    <line x1="300" y1="0" x2="300" y2="200"/>
+    <line x1="450" y1="0" x2="450" y2="200"/>
+    <line x1="600" y1="0" x2="600" y2="200"/>
+    <line x1="750" y1="0" x2="750" y2="200"/>
+  </g>
+
+  <!-- Left accent bar -->
+  <rect x="0" y="0" width="5" height="200" fill="url(#accentGrad)" rx="2"/>
+
+  <!-- Pipeline nodes — decorative right side -->
+  <!-- Node 1: FRD -->
+  <rect x="620" y="38" width="52" height="32" rx="6" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5" opacity="0.9"/>
+  <text x="646" y="59" font-family="monospace" font-size="11" fill="#93c5fd" text-anchor="middle">.docx</text>
+  <!-- Arrow -->
+  <line x1="672" y1="54" x2="690" y2="54" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow)" opacity="0.8"/>
+  <polygon points="690,50 698,54 690,58" fill="#3b82f6" opacity="0.8"/>
+  <!-- Node 2: Parser -->
+  <rect x="698" y="38" width="56" height="32" rx="6" fill="#2d1b69" stroke="#8b5cf6" stroke-width="1.5" opacity="0.9"/>
+  <text x="726" y="59" font-family="monospace" font-size="10" fill="#c4b5fd" text-anchor="middle">parser</text>
+  <!-- Arrow down-left -->
+  <line x1="726" y1="70" x2="726" y2="84" stroke="#8b5cf6" stroke-width="1.5" opacity="0.8"/>
+  <polygon points="722,84 726,92 730,84" fill="#8b5cf6" opacity="0.8"/>
+  <!-- Node 3: JSON -->
+  <rect x="698" y="92" width="56" height="32" rx="6" fill="#1a3a2a" stroke="#22c55e" stroke-width="1.5" opacity="0.9"/>
+  <text x="726" y="113" font-family="monospace" font-size="11" fill="#86efac" text-anchor="middle">JSON</text>
+  <!-- Arrows from JSON -->
+  <line x1="698" y1="108" x2="682" y2="118" stroke="#22c55e" stroke-width="1.2" opacity="0.7"/>
+  <polygon points="682,114 676,122 686,122" fill="#22c55e" opacity="0.7"/>
+  <line x1="754" y1="108" x2="770" y2="118" stroke="#22c55e" stroke-width="1.2" opacity="0.7"/>
+  <polygon points="770,114 776,122 766,122" fill="#22c55e" opacity="0.7"/>
+  <!-- Node 4: RDL -->
+  <rect x="634" y="124" width="46" height="30" rx="6" fill="#3a1f00" stroke="#f97316" stroke-width="1.5" opacity="0.9"/>
+  <text x="657" y="143" font-family="monospace" font-size="10" fill="#fdba74" text-anchor="middle">.rdl</text>
+  <!-- Node 5: PBIP -->
+  <rect x="764" y="124" width="48" height="30" rx="6" fill="#1a1f3a" stroke="#F2C811" stroke-width="1.5" opacity="0.9"/>
+  <text x="788" y="143" font-family="monospace" font-size="10" fill="#fde047" text-anchor="middle">.pbip</text>
+
+  <!-- Subtle glow circles -->
+  <circle cx="726" cy="108" r="60" fill="#8b5cf6" opacity="0.04"/>
+  <circle cx="657" cy="54" r="40" fill="#3b82f6" opacity="0.05"/>
+
+  <!-- Main logo text -->
+  <!-- "pbi" in Power BI yellow/orange -->
+  <text x="55" y="105" font-family="'Segoe UI', system-ui, sans-serif" font-size="72" font-weight="900"
+        fill="url(#accentGrad)" filter="url(#textGlow)" letter-spacing="-2">pbi</text>
+  <!-- "-automation" in white -->
+  <text x="196" y="105" font-family="'Segoe UI', system-ui, sans-serif" font-size="52" font-weight="300"
+        fill="#e2e8f0" letter-spacing="-1">-automation</text>
+
+  <!-- Tagline -->
+  <text x="56" y="140" font-family="'Segoe UI', system-ui, sans-serif" font-size="15" font-weight="400"
+        fill="#64748b" letter-spacing="0.5">FRD  →  Power BI.  Automated.</text>
+
+  <!-- Bottom accent line -->
+  <rect x="56" y="155" width="320" height="2" fill="url(#accentGrad)" rx="1" opacity="0.6"/>
+
+  <!-- Version / tech pills -->
+  <rect x="56" y="168" width="68" height="20" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="90" y="182" font-family="monospace" font-size="10" fill="#94a3b8" text-anchor="middle">Python 3.9+</text>
+
+  <rect x="132" y="168" width="58" height="20" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="161" y="182" font-family="monospace" font-size="10" fill="#94a3b8" text-anchor="middle">MIT License</text>
+
+  <rect x="198" y="168" width="76" height="20" rx="10" fill="#1e293b" stroke="#F2C811" stroke-width="1" opacity="0.8"/>
+  <text x="236" y="182" font-family="monospace" font-size="10" fill="#F2C811" text-anchor="middle">Power BI / Fabric</text>
+</svg>

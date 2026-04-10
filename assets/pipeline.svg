@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="160" viewBox="0 0 860 160">
+  <defs>
+    <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="100%" style="stop-color:#1e1b4b"/>
+    </linearGradient>
+    <marker id="arrowBlue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#22c55e"/>
+    </marker>
+    <marker id="arrowOrange" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#f97316"/>
+    </marker>
+    <marker id="arrowYellow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#F2C811"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="860" height="160" fill="url(#bg2)" rx="10"/>
+
+  <!-- Step labels at top -->
+  <text x="80" y="22" font-family="'Segoe UI', sans-serif" font-size="10" fill="#475569" text-anchor="middle">INPUT</text>
+  <text x="240" y="22" font-family="'Segoe UI', sans-serif" font-size="10" fill="#475569" text-anchor="middle">STEP 1</text>
+  <text x="400" y="22" font-family="'Segoe UI', sans-serif" font-size="10" fill="#475569" text-anchor="middle">STEP 2</text>
+  <text x="600" y="22" font-family="'Segoe UI', sans-serif" font-size="10" fill="#475569" text-anchor="middle">OUTPUT</text>
+  <text x="770" y="22" font-family="'Segoe UI', sans-serif" font-size="10" fill="#475569" text-anchor="middle">IMPORT TO</text>
+
+  <!-- ── Node 1: FRD.docx ── -->
+  <rect x="20" y="50" width="120" height="68" rx="8" fill="#0f1f3d" stroke="#3b82f6" stroke-width="1.8"/>
+  <!-- doc icon -->
+  <rect x="36" y="63" width="22" height="28" rx="2" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1"/>
+  <path d="M52,63 L58,69 L58,91 L36,91 L36,63 Z" fill="none" stroke="#3b82f6" stroke-width="1"/>
+  <path d="M52,63 L52,69 L58,69" fill="none" stroke="#3b82f6" stroke-width="1"/>
+  <line x1="41" y1="75" x2="53" y2="75" stroke="#93c5fd" stroke-width="1" opacity="0.7"/>
+  <line x1="41" y1="79" x2="53" y2="79" stroke="#93c5fd" stroke-width="1" opacity="0.7"/>
+  <line x1="41" y1="83" x2="49" y2="83" stroke="#93c5fd" stroke-width="1" opacity="0.7"/>
+  <text x="98" y="79" font-family="monospace" font-size="12" fill="#93c5fd" font-weight="bold">FRD</text>
+  <text x="98" y="94" font-family="monospace" font-size="10" fill="#475569">.docx</text>
+
+  <!-- Arrow 1→2 -->
+  <line x1="142" y1="84" x2="172" y2="84" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrowBlue)"/>
+
+  <!-- ── Node 2: frd_parser.py ── -->
+  <rect x="174" y="50" width="130" height="68" rx="8" fill="#1a0a2e" stroke="#8b5cf6" stroke-width="1.8"/>
+  <text x="239" y="76" font-family="monospace" font-size="11" fill="#c4b5fd" text-anchor="middle">frd_parser</text>
+  <text x="239" y="91" font-family="monospace" font-size="10" fill="#7c3aed" text-anchor="middle">.py</text>
+  <rect x="186" y="100" width="106" height="8" rx="3" fill="#2d1b69" opacity="0.5"/>
+  <rect x="186" y="100" width="80" height="8" rx="3" fill="#8b5cf6" opacity="0.4"/>
+  <text x="239" y="107" font-family="'Segoe UI', sans-serif" font-size="7" fill="#a78bfa" text-anchor="middle">parsing SDT controls</text>
+
+  <!-- Arrow 2→3 -->
+  <line x1="306" y1="84" x2="336" y2="84" stroke="#22c55e" stroke-width="2" marker-end="url(#arrowGreen)"/>
+
+  <!-- ── Node 3: JSON ── -->
+  <rect x="338" y="50" width="124" height="68" rx="8" fill="#052e16" stroke="#22c55e" stroke-width="1.8"/>
+  <text x="400" y="73" font-family="monospace" font-size="11" fill="#86efac" text-anchor="middle">frd_parsed</text>
+  <text x="400" y="88" font-family="monospace" font-size="10" fill="#4ade80" text-anchor="middle">.json</text>
+  <text x="400" y="104" font-family="'Segoe UI', sans-serif" font-size="9" fill="#166534" text-anchor="middle">95 reports · structured</text>
+
+  <!-- Arrow 3→4a (RDL) -->
+  <path d="M464,75 Q500,75 508,60 L538,60" stroke="#f97316" stroke-width="2" fill="none" marker-end="url(#arrowOrange)"/>
+  <!-- Arrow 3→4b (PBIP) -->
+  <path d="M464,93 Q500,93 508,108 L538,108" stroke="#F2C811" stroke-width="2" fill="none" marker-end="url(#arrowYellow)"/>
+
+  <!-- ── Node 4a: rdl_generator ── -->
+  <rect x="540" y="34" width="130" height="52" rx="8" fill="#1c0a00" stroke="#f97316" stroke-width="1.8"/>
+  <text x="605" y="57" font-family="monospace" font-size="10" fill="#fdba74" text-anchor="middle">rdl_generator</text>
+  <text x="605" y="72" font-family="monospace" font-size="9" fill="#7c2d12" text-anchor="middle">.py  →  74 reports</text>
+
+  <!-- ── Node 4b: pbip_generator ── -->
+  <rect x="540" y="94" width="130" height="52" rx="8" fill="#0d0d1f" stroke="#F2C811" stroke-width="1.8"/>
+  <text x="605" y="117" font-family="monospace" font-size="10" fill="#fde047" text-anchor="middle">pbip_generator</text>
+  <text x="605" y="132" font-family="monospace" font-size="9" fill="#713f12" text-anchor="middle">.py  →  20 reports</text>
+
+  <!-- Arrow 4a→5a -->
+  <line x1="672" y1="60" x2="704" y2="60" stroke="#f97316" stroke-width="2" marker-end="url(#arrowOrange)"/>
+  <!-- Arrow 4b→5b -->
+  <line x1="672" y1="120" x2="704" y2="120" stroke="#F2C811" stroke-width="2" marker-end="url(#arrowYellow)"/>
+
+  <!-- ── Node 5a: .rdl ── -->
+  <rect x="706" y="34" width="80" height="52" rx="8" fill="#1c0a00" stroke="#f97316" stroke-width="1.5"/>
+  <text x="746" y="57" font-family="monospace" font-size="13" fill="#f97316" text-anchor="middle" font-weight="bold">.rdl</text>
+  <text x="746" y="72" font-family="'Segoe UI', sans-serif" font-size="8.5" fill="#9a3412" text-anchor="middle">Report Builder</text>
+
+  <!-- ── Node 5b: .pbip ── -->
+  <rect x="706" y="94" width="80" height="52" rx="8" fill="#1a1400" stroke="#F2C811" stroke-width="1.5"/>
+  <text x="746" y="117" font-family="monospace" font-size="13" fill="#F2C811" text-anchor="middle" font-weight="bold">.pbip</text>
+  <text x="746" y="132" font-family="'Segoe UI', sans-serif" font-size="8.5" fill="#854d0e" text-anchor="middle">PBI Desktop</text>
+
+  <!-- Arrow to Fabric -->
+  <line x1="788" y1="60" x2="808" y2="60" stroke="#f97316" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <line x1="788" y1="120" x2="808" y2="120" stroke="#F2C811" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <rect x="808" y="46" width="40" height="88" rx="6" fill="#1e1a00" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/>
+  <text x="828" y="85" font-family="'Segoe UI', sans-serif" font-size="8" fill="#64748b" text-anchor="middle" transform="rotate(-90 828 85)">Fabric</text>
+</svg>
