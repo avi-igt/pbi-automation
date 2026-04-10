@@ -22,13 +22,14 @@ from pathlib import Path
 _RESET  = "\033[0m"
 _BOLD   = "\033[1m"
 _DIM    = "\033[2m"
-_Y      = "\033[93m"   # yellow  (Power BI brand)
-_O      = "\033[38;5;208m"  # orange
-_B      = "\033[94m"   # blue
-_G      = "\033[92m"   # green
-_P      = "\033[95m"   # purple
-_W      = "\033[97m"   # white
-_GRAY   = "\033[90m"   # dark gray
+_O      = "\033[38;5;202m"  # #FF6600 — Brightstar brand orange (primary)
+_O2     = "\033[38;5;208m"  # #FF8C00 — Brightstar brand orange (secondary)
+_W      = "\033[97m"        # white
+_GRAY   = "\033[90m"        # dark gray
+# Aliases kept for progress indicators
+_Y      = _O    # orange replaces yellow
+_B      = _O2   # orange2 replaces blue
+_G      = _W    # white replaces green (checkmarks etc.)
 
 
 def _supports_color() -> bool:
@@ -43,42 +44,56 @@ def _c(code: str, text: str) -> str:
     return text
 
 
-BANNER = r"""
-  ██████  ██████  ██       █████  ██    ██ ████████  ██████  ███    ███  █████  ████████ ██  ██████  ███    ██
-  ██   ██ ██   ██ ██      ██   ██ ██    ██    ██    ██    ██ ████  ████ ██   ██    ██    ██ ██    ██ ████   ██
-  ██████  ██████  ██      ███████ ██    ██    ██    ██    ██ ██ ████ ██ ███████    ██    ██ ██    ██ ██ ██  ██
-  ██      ██   ██ ██      ██   ██ ██    ██    ██    ██    ██ ██  ██  ██ ██   ██    ██    ██ ██    ██ ██  ██ ██
-  ██      ██████  ███████ ██   ██  ██████     ██     ██████  ██      ██ ██   ██    ██    ██  ██████  ██   ████
+# Tool name ASCII art (block font)
+_TOOL_ART = """
+  ██████╗ ██████╗ ██╗      █████╗ ██╗   ██╗████████╗ ██████╗ ███╗   ███╗ █████╗ ████████╗██╗ ██████╗ ███╗  ██╗
+  ██╔══██╗██╔══██╗██║     ██╔══██╗██║   ██║╚══██╔══╝██╔═══██╗████╗ ████║██╔══██╗╚══██╔══╝██║██╔═══██╗████╗ ██║
+  ██████╔╝██████╔╝██║     ███████║██║   ██║   ██║   ██║   ██║██╔████╔██║███████║   ██║   ██║██║   ██║██╔██╗██║
+  ██╔═══╝ ██╔══██╗██║     ██╔══██║██║   ██║   ██║   ██║   ██║██║╚██╔╝██║██╔══██║   ██║   ██║██║   ██║██║╚████║
+  ██║     ██████╔╝███████╗██║  ██║╚██████╔╝   ██║   ╚██████╔╝██║ ╚═╝ ██║██║  ██║   ██║   ██║╚██████╔╝██║ ╚███║
+  ╚═╝     ╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝    ╚═╝    ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚══╝
 """
 
-BANNER_COMPACT = """
-  ██████╗ ██████╗ ██╗      █████╗ ██╗   ██╗████████╗ ██████╗
-  ██╔══██╗██╔══██╗██║     ██╔══██╗██║   ██║╚══██╔══╝██╔═══██╗
-  ██████╔╝██████╔╝██║     ███████║██║   ██║   ██║   ██║   ██║
-  ██╔═══╝ ██╔══██╗██║     ██╔══██║██║   ██║   ██║   ██║   ██║
-  ██║     ██████╔╝███████╗██║  ██║╚██████╔╝   ██║   ╚██████╔╝
-  ╚═╝     ╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝    ╚═╝    ╚═════╝
-"""
+# Star symbol for Brightstar
+_STAR = "★"
 
 
 def print_banner():
     """Print the colourful CLI banner."""
-    if _supports_color():
-        lines = BANNER_COMPACT.split("\n")
-        colours = [_Y, _Y, _O, _O, _O, _W]
-        for i, line in enumerate(lines):
-            c = colours[min(i, len(colours) - 1)]
-            print(f"{c}{_BOLD}{line}{_RESET}")
-    else:
-        print(BANNER_COMPACT)
+    # ── Company header ──────────────────────────────────────────────────
+    star  = _c(_Y, f" {_STAR} ")
+    co    = _c(_BOLD + _Y, "BRIGHTSTAR LOTTERY")
+    sep   = _c(_GRAY, "  ·  ")
+    tool  = _c(_GRAY, "pbi-automation")
+    print()
+    print(f"  {star} {co}{sep}{tool}")
+    print(_c(_GRAY, "  " + "─" * 72))
 
-    tagline   = _c(_GRAY, "  ─────────────────────────────────────────────────────────────────────")
-    subtitle  = _c(_W, "  FRD") + _c(_GRAY, "  →  ") + _c(_B, "Parser") + _c(_GRAY, "  →  ") + _c(_G, "JSON") + _c(_GRAY, "  →  ") + _c(_O, ".rdl") + _c(_GRAY, " / ") + _c(_Y, ".pbip")
-    credit    = _c(_GRAY, "  Power BI Report Automation  ·  github.com/avi-igt/pbi-automation")
-    print(tagline)
-    print(subtitle)
-    print(credit)
-    print(tagline)
+    # ── Tool name ASCII art ──────────────────────────────────────────────
+    lines   = _TOOL_ART.split("\n")
+    colours = [_Y, _Y, _O, _O, _O, _W]
+    for i, line in enumerate(lines):
+        if not line.strip():
+            continue
+        c = colours[min(i - 1, len(colours) - 1)]
+        print(f"{c}{_BOLD}{line}{_RESET}")
+
+    # ── Tagline strip ───────────────────────────────────────────────────
+    print(_c(_GRAY, "  " + "─" * 72))
+    flow = (
+        _c(_W,    "  FRD")
+        + _c(_GRAY, "  →  ")
+        + _c(_B,    "frd_parser")
+        + _c(_GRAY, "  →  ")
+        + _c(_G,    "JSON")
+        + _c(_GRAY, "  →  ")
+        + _c(_O,    "rdl_generator")
+        + _c(_GRAY, " / ")
+        + _c(_Y,    "pbip_generator")
+    )
+    print(flow)
+    print(_c(_GRAY, "  github.com/avi-igt/pbi-automation"))
+    print(_c(_GRAY, "  " + "─" * 72))
     print()
 
 

@@ -34,14 +34,6 @@ A typical FRD describes dozens of Power BI reports: layouts, parameters, filters
 
 ---
 
-## By the numbers
-
-<div align="center">
-<img src="assets/stats.svg" alt="95 reports · 74 paginated · 20 visual · ~0 min" width="860"/>
-</div>
-
----
-
 ## Prerequisites
 
 - **Python 3.9+**
@@ -245,7 +237,6 @@ pbi-automation/
   assets/
     banner.svg             ← project banner
     pipeline.svg           ← pipeline diagram
-    stats.svg              ← stats graphic
   src/
     frd_parser.py          ← .docx → structured JSON
     rdl_generator.py       ← JSON → .rdl XML (paginated)
@@ -295,7 +286,7 @@ Edit `definition.pbir` manually, or add report-specific keywords to `_infer_sema
 
 <div align="center">
 
-Made with care for the Missouri Lottery Power BI team.
+★ Built by the **Brightstar Lottery** Power BI team.
 
 [![GitHub](https://img.shields.io/badge/GitHub-avi--igt%2Fpbi--automation-181717?style=flat-square&logo=github)](https://github.com/avi-igt/pbi-automation)
 [![MIT License](https://img.shields.io/badge/License-MIT-06d6a0?style=flat-square)](LICENSE)
