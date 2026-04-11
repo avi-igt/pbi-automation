@@ -12,7 +12,7 @@
 
 **Turn a Functional Requirements Document into Power BI report files in seconds — not days.**
 
-[Quick Start](#quick-start) · [Pipeline](#pipeline) · [Configuration](#configuration) · [Data Sources](#data-sources) · [Spec-to-Report](#spec-to-report-path) · [After Generation](#after-generation) · [Output Formats](#output-file-formats) · [Extending](#extending-the-tool) · [Troubleshooting](#troubleshooting)
+[Quick Start](#quick-start) · [Pipeline](#pipeline) · [Configuration](#configuration) · [Data Sources](#data-sources) · [Spec-to-Report](#spec-to-report-path) · [After Generation](#after-generation) · [Full Lifecycle](#full-development-lifecycle) · [Output Formats](#output-file-formats) · [Extending](#extending-the-tool) · [Troubleshooting](#troubleshooting)
 
 </div>
 
@@ -385,6 +385,100 @@ The `output/specs/` folder contains one `.md` file per report with extracted met
 - **Generator input** — after review and confirmation, feed directly to `spec_to_rdl.py` or `spec_to_pbip.py` for Path B generation (see [Spec-to-Report Path](#spec-to-report-path))
 
 > **Tip:** Use `--report "Name"` to generate and test one report at a time before running the full pipeline.
+
+---
+
+## Full Development Lifecycle
+
+pbi-automation handles the first mile — turning requirements into report scaffolding. Two companion open-source tools cover the rest of the lifecycle. Each tool is independent; install only what you need.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PHASE 1 · SCAFFOLD          pbi-automation  (this tool)  · Python · MIT   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  FRD.docx  ──►  frd_parser  ──►  frd_parsed.json  ──►  .rdl / .pbip / .md │
+│                                                                             │
+│  Reviewed .md spec  ──────────────────────────────►  .rdl / .pbip          │
+│                                                                             │
+└─────────────────────────┬───────────────────────────────────────────────────┘
+                          │  generated .rdl and .pbip files on disk
+                          ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PHASE 2 · DEVELOP           pbi-cli           (optional)  · Python · MIT  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  • Connect to running Power BI Desktop (TOM / ADOMD.NET via pythonnet)     │
+│  • List tables, columns, measures  →  fill in TODO stubs in generated files│
+│  • Execute and validate DAX queries before embedding in .rdl                │
+│  • Add / update visuals, filters, themes in PBIR JSON files                 │
+│  • AI-assisted iteration via Claude Code skills                             │
+│                                                                             │
+│  Install:  pip install pbi-cli-tool                                         │
+│  Repo:     https://github.com/MinaSaad1/pbi-cli                             │
+│                                                                             │
+└─────────────────────────┬───────────────────────────────────────────────────┘
+                          │  developer-validated report files
+                          ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PHASE 3 · SHIP              pbi-tools         (optional)  · C# · AGPL-3.0 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  • extract:  PBIX → PbixProj folder  (git-friendly source control)         │
+│  • compile:  PbixProj folder → PBIX  (ready to publish)                    │
+│  • deploy:   Push reports + datasets to Power BI Service via REST + XMLA   │
+│              - Multi-environment manifests  (dev / UAT / prod)              │
+│              - Dataset refresh automation  (full / incremental / partition) │
+│              - Gateway binding + credential injection                       │
+│              - Service Principal auth for CI/CD pipelines                   │
+│                                                                             │
+│  Install:  https://pbi.tools  (Windows exe or .NET Core cross-platform)    │
+│  Repo:     https://github.com/pbi-tools/pbi-tools                           │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Typical end-to-end workflow
+
+```bash
+# ── PHASE 1: Generate scaffolding ─────────────────────────────────────────
+python generate_all.py "MO FRD v1.0.docx"
+# → output/rdl/**/*.rdl   (paginated reports)
+# → output/pbip/**/       (visual reports)
+# → output/specs/*.md     (review docs)
+
+# Review specs, confirm datasource / SQL / model name, then regenerate
+python src/spec_to_rdl.py output/specs/  -o output/from-spec/rdl
+python src/spec_to_pbip.py output/specs/ -o output/from-spec/pbip
+
+# ── PHASE 2: Develop & validate (pbi-cli) ─────────────────────────────────
+pbi connect localhost:50000          # connect to running PBI Desktop
+pbi table list                       # discover real table / column names
+pbi dax execute "EVALUATE Sales"     # validate DAX before embedding in .rdl
+pbi visual list output/pbip/Reports_Sales/Cash_Pop_Performance.Report/
+
+# ── PHASE 3: Source control + deploy (pbi-tools) ──────────────────────────
+pbi-tools extract --input MyReport.pbix --project-folder src/MyReport
+git add . && git commit -m "feat: add Cash Pop scaffold"
+
+pbi-tools deploy --manifest deploy/manifest.json \
+                 --environment prod \
+                 --workspace "Missouri - D1V1"
+```
+
+### Tool comparison
+
+| | pbi-automation | pbi-cli | pbi-tools |
+|---|---|---|---|
+| **Phase** | Requirements → scaffold | Development iteration | Source control + deploy |
+| **Language** | Python | Python | C# / .NET |
+| **PBI Desktop needed** | No | Yes (for TOM features) | Yes (Desktop edition) or No (Core edition) |
+| **Power BI Service needed** | No | No | Yes (for deploy) |
+| **Works offline** | Yes | Partial | Partial |
+| **License** | MIT | MIT | AGPL-3.0 |
+| **AI integration** | Claude Code | Claude Code (built-in skills) | None |
+
+> **AGPL note:** pbi-tools is licensed under AGPL-3.0. For internal enterprise use this is fine. The copyleft clause only applies if you distribute pbi-tools as part of software shipped to external customers.
 
 ---
 
