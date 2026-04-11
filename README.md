@@ -12,7 +12,7 @@
 
 **Turn a Functional Requirements Document into Power BI report files in seconds — not days.**
 
-[Quick Start](#quick-start) · [Pipeline](#pipeline) · [Configuration](#configuration) · [Data Sources](#data-sources) · [After Generation](#after-generation) · [Output Formats](#output-file-formats) · [Extending](#extending-the-tool) · [Troubleshooting](#troubleshooting)
+[Quick Start](#quick-start) · [Pipeline](#pipeline) · [Configuration](#configuration) · [Data Sources](#data-sources) · [Spec-to-Report](#spec-to-report-path) · [After Generation](#after-generation) · [Output Formats](#output-file-formats) · [Extending](#extending-the-tool) · [Troubleshooting](#troubleshooting)
 
 </div>
 
@@ -34,16 +34,27 @@ Everything deployment-specific lives in **`pbi.properties`** — workspace name,
 <img src="assets/pipeline.svg" alt="FRD → Parse → JSON checkpoint → RDL / PBIP / .md" width="1060"/>
 </div>
 
-### How it works
+### Path A — FRD → JSON → Reports (full pipeline)
 
 | Step | Script | Input | Output | Notes |
 |------|--------|-------|--------|-------|
 | 1 | `frd_parser.py` | FRD `.docx` | `output/json/frd_parsed.json` | **Human checkpoint** — review and edit before generating |
 | 2 | `rdl_generator.py` | `frd_parsed.json` | `output/rdl/**/*.rdl` | Paginated reports with header, footer, logo, params |
 | 3 | `pbip_generator.py` | `frd_parsed.json` | `output/pbip/**/` | Visual report folders with pages and visuals |
-| 4 | `spec_generator.py` | FRD `.docx` | `output/specs/*.md` | Review docs only — not used as generator input |
+| 4 | `spec_generator.py` | FRD `.docx` | `output/specs/*.md` | Human-readable review docs; datasource details confirmed |
 
 **The JSON is the checkpoint.** After Step 1, open `output/json/frd_parsed.json`, verify field names, fix any incorrect `report_format` or `datasource_type` values, then run Steps 2–4. All generators read from JSON — there is no lossy intermediate format.
+
+### Path B — Reviewed Spec → Reports (second-pass generation)
+
+Once a developer has reviewed and confirmed a spec `.md` (filling in the correct semantic model, SQL query, connection string, etc.), the spec itself becomes a generator input — **no FRD or JSON required**.
+
+| Script | Input | Output | Notes |
+|--------|-------|--------|-------|
+| `spec_to_rdl.py` | `output/specs/*.md` | `output/from-spec/rdl/` | Paginated reports from reviewed specs |
+| `spec_to_pbip.py` | `output/specs/*.md` | `output/from-spec/pbip/` | Visual reports from reviewed specs |
+
+Internally, both scripts use **`spec_parser.py`** to translate the `.md` format into the same report dict used by `rdl_generator.py` and `pbip_generator.py`. Any values confirmed in the spec (connection string, model name, SQL query) take precedence over auto-inferred values.
 
 ---
 
@@ -148,6 +159,28 @@ python -m src.rdl_generator  output/json/frd_parsed.json -o output/rdl
 python -m src.pbip_generator output/json/frd_parsed.json -o output/pbip
 python src/spec_generator.py "FRD.docx" --output-dir output/specs
 ```
+
+### Generate from reviewed specs (Path B)
+
+```bash
+# All Paginated specs in output/specs/ → output/from-spec/rdl/
+python src/spec_to_rdl.py output/specs/
+
+# All Visual specs in output/specs/ → output/from-spec/pbip/
+python src/spec_to_pbip.py output/specs/
+
+# Single spec file
+python src/spec_to_rdl.py output/specs/mo-wild-ball-sales-report.md
+
+# Custom output directory
+python src/spec_to_rdl.py output/specs/ -o output/custom/rdl
+
+# Filter by report name (partial match, case-insensitive)
+python src/spec_to_rdl.py output/specs/ --report "Wild Ball"
+python src/spec_to_pbip.py output/specs/ --report "Cash Pop"
+```
+
+Each script automatically skips specs of the wrong format (e.g. `spec_to_rdl.py` silently skips Visual specs).
 
 ---
 
@@ -280,6 +313,49 @@ The `sql/` directory is **not committed** — SQL files are maintained alongside
 
 ---
 
+## Spec-to-Report Path
+
+After running the full pipeline, `output/specs/` contains one `.md` file per report. These files are designed to be both human-readable **and** machine-parseable — a developer can review them, fill in any missing values, and then feed them directly back into the generators.
+
+### What to confirm in a spec before regenerating
+
+| Spec section | What to check / fill in |
+|---|---|
+| `## Data Source` | Confirm the semantic model name, or fill in DSN and source name for ODBC reports |
+| `## Datasets` | Add or correct the SQL query (for ODBC reports) in the ` ```sql ``` ` block |
+| `## Parameters` / `## Filters` | Verify labels, single/multiple selection, required flag |
+| `## Layout` | Confirm column order and names |
+| `## Metadata` | Check `Report Format` is `Paginated` or `Visual` |
+
+### How confirmed values flow through
+
+`spec_parser.py` reads the spec and injects confirmed values as `_spec_*` override keys:
+
+| Spec field | Override key | Used by |
+|---|---|---|
+| Connection string (code block) | `_spec_connect_string` | `rdl_generator.py` |
+| Semantic model name | `_spec_model` | `rdl_generator.py`, `pbip_generator.py` |
+| Datasource name (`WorkspaceSlug_ModelName`) | `_spec_datasource_name` | `rdl_generator.py` |
+| Dataset GUID | `_spec_guid` | `rdl_generator.py` |
+| SQL query (` ```sql ``` ` block) | `_spec_sql` | `rdl_generator.py` |
+
+These override keys take precedence over auto-inferred values, so a confirmed spec produces more accurate output than the first-pass FRD parse.
+
+### Output location
+
+Path B output lands in a separate directory to avoid overwriting Path A output:
+
+```
+output/
+  rdl/              ← Path A: generated from frd_parsed.json
+  pbip/             ← Path A: generated from frd_parsed.json
+  from-spec/
+    rdl/            ← Path B: generated from reviewed .md specs
+    pbip/           ← Path B: generated from reviewed .md specs
+```
+
+---
+
 ## After Generation
 
 ### Paginated Reports (`.rdl`)
@@ -303,7 +379,10 @@ The `sql/` directory is **not committed** — SQL files are maintained alongside
 
 ### Review Docs (`.md` specs)
 
-The `output/specs/` folder contains one `.md` file per report with extracted metadata, parameters, layout columns, business rules, and the inferred data source (type, connection, SQL path). These are **documentation artifacts** for developer handoff and review meetings — not used as generator input.
+The `output/specs/` folder contains one `.md` file per report with extracted metadata, parameters, layout columns, business rules, and the inferred data source (type, connection string, GUID, SQL path). These serve a dual purpose:
+
+- **Documentation** — human-readable handoff artifacts for developer review meetings
+- **Generator input** — after review and confirmation, feed directly to `spec_to_rdl.py` or `spec_to_pbip.py` for Path B generation (see [Spec-to-Report Path](#spec-to-report-path))
 
 > **Tip:** Use `--report "Name"` to generate and test one report at a time before running the full pipeline.
 
@@ -400,6 +479,9 @@ pbi-automation/
     spec_generator.py      ← .docx → .md review docs (standalone or via pipeline)
     rdl_generator.py       ← JSON → .rdl XML (paginated reports)
     pbip_generator.py      ← JSON → .pbip folder (visual reports)
+    spec_parser.py         ← .md spec → report dict (shared by spec_to_rdl + spec_to_pbip)
+    spec_to_rdl.py         ← reviewed .md spec → .rdl (Path B, paginated)
+    spec_to_pbip.py        ← reviewed .md spec → .pbip (Path B, visual)
   sql/                     ← hand-authored SQL files for ODBC reports (not committed)
     1042_Tax.sql           ← example: name matches report name with spaces→underscores
   templates/
@@ -411,9 +493,12 @@ pbi-automation/
       visual-report-spec-template.md
   output/                  ← generated files (not committed)
     json/frd_parsed.json   ← ★ human checkpoint — edit before re-running generators
-    rdl/                   ← generated .rdl files
-    pbip/                  ← generated .pbip folders
-    specs/                 ← generated .md review docs
+    rdl/                   ← Path A: .rdl files from frd_parsed.json
+    pbip/                  ← Path A: .pbip folders from frd_parsed.json
+    specs/                 ← .md review docs (input for Path B after review)
+    from-spec/
+      rdl/                 ← Path B: .rdl files from reviewed .md specs
+      pbip/                ← Path B: .pbip folders from reviewed .md specs
 ```
 
 ---
@@ -495,6 +580,15 @@ Word has no spaces between column names. The parser splits on camelCase boundari
 
 **RDL opens with XML error in Report Builder**  
 Run `python -c "import xml.etree.ElementTree as ET; ET.parse('output/rdl/path/to/file.rdl')"` to pinpoint the bad line, then check for unescaped `<`, `>`, `&`, or `--` in the report name, summary, or requirements fields in the JSON.
+
+**`spec_to_rdl.py` raises `ValueError: report_format is 'Visual'`**  
+The spec describes a Visual report. Use `spec_to_pbip.py` instead, or check that `Report Format` in the spec's `## Metadata` section says `Paginated`.
+
+**Spec-generated `.rdl` has `TODO_SemanticModel` in the connection string**  
+The `## Data Source` section of the spec is missing the confirmed semantic model name. Either fill in the `- **Semantic model:** \`ModelName.SemanticModel\`` line in the spec and re-run, or ensure the model name appears in `[model_keywords]` in `pbi.properties` for auto-inference.
+
+**Spec-generated ODBC report has an auto-stub SQL instead of the real query**  
+Add a ` ```sql ``` ` block under `## Datasets` in the spec `.md` file and re-run `spec_to_rdl.py`. The spec SQL takes priority over any `sql/` file.
 
 ---
 
