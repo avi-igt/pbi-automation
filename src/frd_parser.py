@@ -17,6 +17,14 @@ from pathlib import Path
 import docx
 from lxml import etree
 
+try:
+    from src.config import cfg as _cfg
+except ImportError:
+    try:
+        from config import cfg as _cfg
+    except ImportError:
+        _cfg = None
+
 NS = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
 W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
@@ -94,6 +102,9 @@ def parse_parameters(raw_list: list) -> list:
         ).strip()
         if not text or text.upper() in ("N/A", "--", "NONE"):
             continue
+        # Ensure whitespace before Single/Multiple when directly adjacent to label text
+        # e.g. "Calendar Year*Single" → "Calendar Year* Single"
+        text = re.sub(r"(\S)(Single|Multiple)", r"\1 \2", text)
         rows = re.findall(
             r"([A-Z][^\n]+?)\s+(Single|Multiple)\s*(.*?)(?=\s+[A-Z][^\n]+?\s+(?:Single|Multiple)|$)",
             text,
@@ -233,21 +244,11 @@ def parse_requirements(raw_list: list) -> list:
 
 
 def _infer_datasource(report: dict) -> str:
+    """Return 'semantic_model', 'db2', or 'snowflake' for *report*.
+    Delegates to cfg.infer_datasource() which reads keywords from pbi.properties.
     """
-    Infer whether this report uses a semantic model or a direct DB connection.
-    Returns 'semantic_model', 'db2', or 'snowflake'.
-    """
-    text = " ".join([
-        report.get("summary", ""),
-        report.get("notes", ""),
-        report.get("legacy_reports", ""),
-        report.get("name", ""),
-    ]).lower()
-    # Reports with these keywords likely come from a raw DB
-    if any(k in text for k in ["boadb", "db2", "ardb", "1042", "tax report"]):
-        return "db2"
-    if "snowflake" in text:
-        return "snowflake"
+    if _cfg is not None:
+        return _cfg.infer_datasource(report)
     return "semantic_model"
 
 

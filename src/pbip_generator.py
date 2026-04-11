@@ -32,6 +32,18 @@ import uuid
 from pathlib import Path
 from datetime import datetime
 
+try:
+    from src.config import cfg as _cfg
+except ImportError:
+    try:
+        from config import cfg as _cfg
+    except ImportError:
+        _cfg = None
+
+
+def _get_cfg():
+    return _cfg
+
 
 # Visual type mapping: FRD section/column hints → Power BI visual type
 _CHART_HINTS = {
@@ -84,7 +96,10 @@ def make_column_projection(col_name: str, entity: str = "TODO_Table") -> dict:
 def make_table_visual(visual_id: str, section_name: str, columns: list,
                       x: float, y: float, width: float, height: float) -> dict:
     """Build a tableEx visual.json dict."""
-    projections = [make_column_projection(c) for c in columns]
+    c = _get_cfg()
+    color_grid   = c.brand_color_grid   if c else "#D6DBEA"
+    color_header = c.brand_color_header if c else "#FAFAFA"
+    projections = [make_column_projection(col) for col in columns]
     return {
         "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
         "name": visual_id,
@@ -107,7 +122,7 @@ def make_table_visual(visual_id: str, section_name: str, columns: list,
                     "properties": {
                         "textSize": {"expr": {"Literal": {"Value": "8D"}}},
                         "gridHorizontalColor": {
-                            "solid": {"color": {"expr": {"Literal": {"Value": "'#D6DBEA'"}}}}
+                            "solid": {"color": {"expr": {"Literal": {"Value": f"'{color_grid}'"}}}}
                         }
                     }
                 }],
@@ -115,7 +130,7 @@ def make_table_visual(visual_id: str, section_name: str, columns: list,
                     "properties": {
                         "bold": {"expr": {"Literal": {"Value": "true"}}},
                         "backColor": {
-                            "solid": {"color": {"expr": {"Literal": {"Value": "'#FAFAFA'"}}}}
+                            "solid": {"color": {"expr": {"Literal": {"Value": f"'{color_header}'"}}}}
                         }
                     }
                 }],
@@ -359,11 +374,13 @@ def generate_pbip(report: dict, output_dir: str) -> str:
     )
 
     # --- definition/report.json (report-level metadata, NO pages/visuals) ---
+    c = _get_cfg()
+    theme_name = c.theme_name if c else "CY22SU08"
     report_json = {
         "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/report/3.0.0/schema.json",
         "themeCollection": {
             "baseTheme": {
-                "name": "CY22SU08",
+                "name": theme_name,
                 "reportVersionAtImport": {
                     "visual": "1.8.71",
                     "report": "2.0.71",
@@ -421,8 +438,8 @@ def generate_pbip(report: dict, output_dir: str) -> str:
             "name": sec_id,
             "displayName": page_display[:50],
             "displayOption": "FitToPage",
-            "height": 720,
-            "width": 1280
+            "height": c.canvas_height if c else 720,
+            "width": c.canvas_width if c else 1280
         }
         (page_dir / "page.json").write_text(
             json.dumps(page_json, indent=2), encoding="utf-8"
@@ -469,25 +486,16 @@ def generate_pbip(report: dict, output_dir: str) -> str:
 
 
 def _infer_semantic_model(report: dict) -> str:
-    """Pick the most likely MO_* semantic model name for a visual report."""
-    text = (report.get("name", "") + " " + report.get("summary", "")).lower()
-    model_hints = [
-        ("MO_Inventory", ["inventory", "pack", "activated", "aging", "bin", "scratchers"]),
-        ("MO_Payments", ["payment", "1042", "tax", "claim", "winner", "prize"]),
-        ("MO_Promotions", ["promotion", "promo", "cashless", "device"]),
-        ("MO_Invoice", ["invoice", "brightstar"]),
-        ("MO_DrawData", ["draw", "jackpot", "winning number", "cash pop", "keno"]),
-        ("MO_WinnerData", ["winner", "prize"]),
-        ("MO_LVMSales", ["lvm", "vending machine"]),
-        ("MO_LVMTransactional", ["lvm transaction"]),
-        ("MO_IntervalSales", ["interval", "hourly"]),
-        ("MO_CoreTables", ["retailer list", "chain store", "district", "terminal", "device list"]),
-        ("MO_Sales", ["sales", "retailer", "wager", "ticket", "revenue"]),
-    ]
-    for model, keywords in model_hints:
-        if any(kw in text for kw in keywords):
-            return model
-    return "MO_Sales"
+    """Return the best-matching semantic model name for *report*.
+
+    Delegates entirely to cfg.infer_semantic_model(), which reads model names
+    and keywords from [model_keywords] in pbi.properties.  No model names are
+    hardcoded here — add or remove datasets by editing pbi.properties only.
+    """
+    c = _get_cfg()
+    if c is not None:
+        return c.infer_semantic_model(report)
+    return "TODO_SemanticModel"
 
 
 def _write_readme(report_dir: Path, report: dict,

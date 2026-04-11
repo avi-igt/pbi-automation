@@ -19,6 +19,10 @@ import sys
 import time
 from pathlib import Path
 
+# Ensure UTF-8 output on Windows (cp1252 can't encode block-art / star glyphs)
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 # ── ANSI colour helpers ────────────────────────────────────────────────────────
 _RESET  = "\033[0m"
 _BOLD   = "\033[1m"

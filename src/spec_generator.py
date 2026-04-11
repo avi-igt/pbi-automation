@@ -30,7 +30,34 @@ except ImportError:
     print("ERROR: python-docx is required.  Install with:  pip install python-docx")
     sys.exit(1)
 
+try:
+    from src.config import cfg as _cfg
+except ImportError:
+    try:
+        from config import cfg as _cfg
+    except ImportError:
+        _cfg = None
+
 NS_W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
+
+# ── Datasource inference ───────────────────────────────────────────────────────
+
+def _infer_ds_info(report_name: str, summary: dict) -> tuple:
+    """Return (datasource_type, semantic_model) for a report using cfg keywords."""
+    report = {
+        "name":    report_name,
+        "summary": summary.get("description", ""),
+        "notes":   summary.get("notes", ""),
+    }
+    if _cfg is not None:
+        ds_type = _cfg.infer_datasource(report)
+        model = _cfg.infer_semantic_model(report) if ds_type == "semantic_model" else ""
+    else:
+        ds_type = "semantic_model"
+        model = "TODO_SemanticModel"
+    return ds_type, model
+
 
 # ── Text cleaning ──────────────────────────────────────────────────────────────
 
@@ -483,6 +510,8 @@ def generate_md(
     reqs: list,
     gen_reqs: dict,
     param_section: str,
+    datasource_type: str = "semantic_model",
+    semantic_model: str = "",
 ) -> str:
     lines = []
     title = summary.get("title") or report_name
@@ -509,12 +538,38 @@ def generate_md(
         lines.append(f"- **Notes:** {summary['notes']}")
     lines.append("")
 
-    lines += [
-        "## Data Source", "",
-        "- **Name:** MO_Snowflake",
-        "- **Connection:** (shared data source — `MO_Snowflake.rds`)",
-        "",
-    ]
+    lines += ["## Data Source", ""]
+    if datasource_type == "db2":
+        db2_dsn = _cfg.db2_dsn if _cfg else "MOS-Q1-BOADB"
+        db2_src = _cfg.db2_source_name if _cfg else "BOADB"
+        safe = re.sub(r"[^\w\s\-]", "", report_name).strip().replace(" ", "_")
+        lines += [
+            "- **Type:** DB2 / ARDB (ODBC)",
+            f"- **Source Name:** `{db2_src}`",
+            f"- **DSN:** `{db2_dsn}`",
+            f"- **SQL:** hand-authored — `sql/{safe}.sql`",
+            "  *(place hand-authored SQL at this path; generator falls back to auto-stub if absent)*",
+        ]
+    elif datasource_type == "snowflake":
+        sf_dsn = _cfg.sfodbc_dsn if _cfg else "MOS-PX-SFODBC"
+        sf_src = _cfg.sfodbc_source_name if _cfg else "LPC_E2_SFODBC"
+        safe = re.sub(r"[^\w\s\-]", "", report_name).strip().replace(" ", "_")
+        lines += [
+            "- **Type:** Snowflake (ODBC)",
+            f"- **Source Name:** `{sf_src}`",
+            f"- **DSN:** `{sf_dsn}`",
+            "- **Schemas:** `TXNDTL`, `DIMCORE`",
+            f"- **SQL:** hand-authored — `sql/{safe}.sql`",
+            "  *(place hand-authored SQL at this path; generator falls back to auto-stub if absent)*",
+        ]
+    else:
+        model = semantic_model or "TODO_SemanticModel"
+        lines += [
+            "- **Type:** Semantic Model (Power BI Dataset)",
+            f"- **Model:** `{model}`",
+            "- **Connection:** shared Fabric semantic model (no direct SQL)",
+        ]
+    lines.append("")
 
     lines += [f"## {param_section}", ""]
     if params:
@@ -677,7 +732,11 @@ def generate_all_specs(frd_docx_path: str, output_dir: str) -> list:
             layout  = extract_layout(subsection_sdts(items, start, end, "Layout"))
             reqs    = extract_requirements(subsection_sdts(items, start, end, "Requirements"))
 
-            md = generate_md(report_name, summary, params, layout, reqs, gen_reqs, param_sec)
+            ds_type, model = _infer_ds_info(report_name, summary)
+            md = generate_md(
+                report_name, summary, params, layout, reqs, gen_reqs, param_sec,
+                datasource_type=ds_type, semantic_model=model,
+            )
             out_file = specs_dir / safe_filename(report_name)
             out_file.write_text(md, encoding="utf-8")
             generated.append(str(out_file))
@@ -754,7 +813,11 @@ def main():
             layout  = extract_layout(subsection_sdts(items, start, end, "Layout"))
             reqs    = extract_requirements(subsection_sdts(items, start, end, "Requirements"))
 
-            md = generate_md(report_name, summary, params, layout, reqs, gen_reqs, param_sec)
+            ds_type, model = _infer_ds_info(report_name, summary)
+            md = generate_md(
+                report_name, summary, params, layout, reqs, gen_reqs, param_sec,
+                datasource_type=ds_type, semantic_model=model,
+            )
             out_file = out_dir / safe_filename(report_name)
             out_file.write_text(md, encoding="utf-8")
             print(f"  ✓  {report_name}  →  {out_file.name}")

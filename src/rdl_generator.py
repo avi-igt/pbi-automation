@@ -33,6 +33,27 @@ def safe_name(text: str) -> str:
     return re.sub(r"\W+", "_", text).strip("_")
 
 
+def _load_sql(report_name: str) -> str | None:
+    """Return the contents of sql/{safe_name}.sql if the file exists, else None.
+
+    The SQL file name is derived from the report name using the same sanitisation
+    applied to .rdl output filenames:  non-word chars stripped, spaces → underscores.
+    Example:  "1042 Tax"  →  sql/1042_Tax.sql
+
+    The file may contain any valid SQL for the target ODBC source (DB2 or Snowflake).
+    Positional ? parameters must appear in the same order as the report's parameters.
+    If the file is absent the generator falls back to an auto-generated stub.
+    """
+    c = _get_cfg()
+    if c is None:
+        return None
+    safe = re.sub(r"[^\w\s\-]", "", report_name).strip().replace(" ", "_")
+    sql_file = c.sql_dir / f"{safe}.sql"
+    if sql_file.exists():
+        return sql_file.read_text(encoding="utf-8")
+    return None
+
+
 def safe_comment(text: str) -> str:
     """Sanitize text for embedding inside an XML comment — replace '--' sequences."""
     return text.replace("--", "\u2013\u2013")  # replace with en-dashes to preserve meaning
@@ -57,28 +78,16 @@ def _get_cfg():
 
 
 def guess_semantic_model(report: dict) -> str:
+    """Return the best-matching semantic model name for *report*.
+
+    Delegates entirely to cfg.infer_semantic_model(), which reads model names
+    and keywords from [model_keywords] in pbi.properties.  No model names are
+    hardcoded here — add or remove datasets by editing pbi.properties only.
     """
-    Heuristically pick the most likely MO_* semantic model for a report.
-    Returns just the dataset name (e.g. 'MO_Sales').
-    """
-    name_lower = (report.get("name", "") + " " + report.get("summary", "")).lower()
-    model_hints = {
-        "MO_Sales": ["sales", "retailer", "keno", "draw", "wager", "ticket"],
-        "MO_Inventory": ["inventory", "pack", "activated", "aging", "bin"],
-        "MO_Payments": ["payment", "check", "1042", "tax", "claim", "winner"],
-        "MO_Promotions": ["promotion", "promo", "cashless"],
-        "MO_Invoice": ["invoice", "brightstar"],
-        "MO_DrawData": ["draw", "jackpot", "winning number"],
-        "MO_WinnerData": ["winner", "prize", "claim"],
-        "MO_LVMSales": ["lvm", "vending"],
-        "MO_LVMTransactional": ["transaction", "lvm"],
-        "MO_IntervalSales": ["interval", "hourly", "weekly"],
-        "MO_CoreTables": ["retailer list", "chain", "district", "device", "terminal"],
-    }
-    for model, keywords in model_hints.items():
-        if any(kw in name_lower for kw in keywords):
-            return model
-    return "MO_Sales"
+    c = _get_cfg()
+    if c is not None:
+        return c.infer_semantic_model(report)
+    return "TODO_SemanticModel"
 
 
 def make_parameter_xml(param: dict) -> tuple:
@@ -483,9 +492,13 @@ def generate_rdl(report: dict) -> str:
   </DataSets>"""
 
     else:
-        # ODBC / DB2 (BOADB) or Snowflake
-        db_name = "BOADB" if datasource_type == "db2" else "SNOWFLAKE"
-        dsn_name = "MOS-Q1-BOADB" if datasource_type == "db2" else "MOS-Q1-SNOWFLAKE"
+        # ODBC / DB2 (BOADB) or Snowflake direct ODBC
+        if datasource_type == "db2":
+            db_name  = c.db2_source_name  if c else "BOADB"
+            dsn_name = c.db2_dsn          if c else "MOS-Q1-BOADB"
+        else:
+            db_name  = c.sfodbc_source_name if c else "LPC_E2_SFODBC"
+            dsn_name = c.sfodbc_dsn         if c else "MOS-PX-SFODBC"
         datasource_xml = f"""  <DataSources>
     <DataSource Name="{db_name}">
       <rd:SecurityType>DataBase</rd:SecurityType>
@@ -498,18 +511,29 @@ def generate_rdl(report: dict) -> str:
     </DataSource>
   </DataSources>"""
 
-        select_cols = ",\n    ".join(
-            f"-- TODO_schema.TODO_table.[{col}] AS \"{col}\"" for col in unique_columns
-        )
-        where_hints = [
-            r["text"] for r in requirements
-            if any(kw in r["text"].lower() for kw in
-                   ["shall include", "shall exclude", "having", "status of", "equal to"])
-        ]
-        where_block = (
-            "WHERE\n  " + "\n  -- AND ".join(f"/* {h} */" for h in where_hints)
-            if where_hints else ""
-        )
+        # ── SQL: hand-authored file takes priority over auto-generated stub ──
+        sql_text = _load_sql(report["name"])
+        sql_source = "file"
+        if sql_text is None:
+            sql_source = "stub"
+            select_cols = ",\n    ".join(
+                f"-- TODO_schema.TODO_table.[{col}] AS \"{col}\"" for col in unique_columns
+            )
+            where_hints = [
+                r["text"] for r in requirements
+                if any(kw in r["text"].lower() for kw in
+                       ["shall include", "shall exclude", "having", "status of", "equal to"])
+            ]
+            where_block = (
+                "WHERE\n  " + "\n  -- AND ".join(f"/* {h} */" for h in where_hints)
+                if where_hints else ""
+            )
+            sql_text = (
+                f"-- AUTO-GENERATED STUB: replace with actual SQL\n"
+                f"-- Or place hand-authored SQL in: sql/{re.sub(r'[^\\w\\s\\-]', '', report['name']).strip().replace(' ', '_')}.sql\n"
+                f"SELECT\n    {select_cols}\nFROM\n    TODO_schema.TODO_table\n{where_block}"
+            )
+
         fields_xml = "\n".join(
             f"""        <Field Name="{safe_name(col)}">
           <rd:TypeName>System.String</rd:TypeName>
@@ -517,16 +541,13 @@ def generate_rdl(report: dict) -> str:
         </Field>"""
             for col in unique_columns
         )
-        sql_stub = (
-            f"-- AUTO-GENERATED STUB: replace with actual SQL\n"
-            f"SELECT\n    {select_cols}\nFROM\n    TODO_schema.TODO_table\n{where_block}"
-        )
         dataset_xml = f"""  <DataSets>
     <DataSet Name="{ds_safe}">
       <Query>
         <DataSourceName>{db_name}</DataSourceName>
 {query_params_xml}
-        <CommandText>{xe(sql_stub)}</CommandText>
+        <!-- sql_source: {sql_source} -->
+        <CommandText>{xe(sql_text)}</CommandText>
       </Query>
       <Fields>
 {fields_xml}
@@ -640,8 +661,8 @@ def generate_rdl(report: dict) -> str:
                       <Value>{xe(name)}</Value>
                       <Style>
                         <FontStyle>Normal</FontStyle>
-                        <FontFamily>Segoe UI Light</FontFamily>
-                        <FontSize>14pt</FontSize>
+                        <FontFamily>{c.title_font if c else "Segoe UI Light"}</FontFamily>
+                        <FontSize>{c.title_font_size if c else "14pt"}</FontSize>
                         <FontWeight>Bold</FontWeight>
                         <TextDecoration>None</TextDecoration>
                       </Style>
@@ -773,7 +794,7 @@ def generate_rdl(report: dict) -> str:
 {param_grid_xml}
 
   <Code>Public Function GetCST As DateTime
-return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time"))
+return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("{c.timezone if c else "Central Standard Time"}"))
 End Function
 </Code>
 

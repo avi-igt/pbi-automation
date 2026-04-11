@@ -24,18 +24,36 @@ class PbiConfig:
 
     def __init__(self):
         self._cp = configparser.ConfigParser(interpolation=None)
+        self._cp.optionxform = str  # preserve key case (needed for MO_Sales etc.)
         if _PROPERTIES_FILE.exists():
             self._cp.read(_PROPERTIES_FILE, encoding="utf-8")
 
         self.workspace_name = self._get("fabric", "workspace_name", "Missouri - D1V1")
         self.tenant_id = self._get("fabric", "tenant_id", "TODO_TENANT_ID")
 
-        # Dataset GUID map  { "MO_Sales": "45ddd7fc-..." }
+        # Dataset GUID map  { "MO_SALES": "45ddd7fc-..." }  (keys uppercased for lookup)
         self.dataset_guids: dict[str, str] = {}
         if self._cp.has_section("datasets"):
             for k, v in self._cp.items("datasets"):
-                # Normalise key to PascalCase "MO_Sales" etc.
                 self.dataset_guids[k.upper().replace(" ", "_")] = v.strip()
+
+        # ODBC data sources
+        self.db2_source_name = self._get("odbc", "db2_source_name", "BOADB")
+        self.db2_dsn = self._get("odbc", "db2_dsn", "MOS-Q1-BOADB")
+        self.sfodbc_source_name = self._get("odbc", "sfodbc_source_name", "LPC_E2_SFODBC")
+        self.sfodbc_dsn = self._get("odbc", "sfodbc_dsn", "MOS-PX-SFODBC")
+
+        # Datasource type detection — ordered list of (ds_type, [keywords])
+        # e.g. [("snowflake", ["rdst", "tmir", ...]), ("db2", ["claims", ...])]
+        self._datasource_keywords: list[tuple[str, list[str]]] = (
+            self._parse_kw_section("datasource_keywords")
+        )
+
+        # Semantic model selection — ordered list of (model_name, [keywords])
+        # e.g. [("MO_LVMTransactional", ["lvm transaction", ...]), ...]
+        self._model_keywords: list[tuple[str, list[str]]] = (
+            self._parse_kw_section("model_keywords")
+        )
 
         # Page / layout defaults
         self.page_width = self._get("rdl", "page_width", "11in")
@@ -44,6 +62,23 @@ class PbiConfig:
         self.header_height = self._get("rdl", "header_height", "0.90563in")
         self.footer_height = self._get("rdl", "footer_height", "0.42486in")
         self.default_font = self._get("rdl", "default_font", "Segoe UI")
+        self.title_font = self._get("rdl", "title_font", "Segoe UI Light")
+        self.title_font_size = self._get("rdl", "title_font_size", "14pt")
+        self.timezone = self._get("rdl", "timezone", "Central Standard Time")
+
+        # PBIP canvas and branding
+        self.canvas_width = int(self._get("pbip", "canvas_width", "1280"))
+        self.canvas_height = int(self._get("pbip", "canvas_height", "720"))
+        self.theme_name = self._get("pbip", "theme_name", "CY22SU08")
+        self.brand_color_grid = self._get("pbip", "brand_color_grid", "#D6DBEA")
+        self.brand_color_header = self._get("pbip", "brand_color_header", "#FAFAFA")
+
+        # Directory containing hand-authored SQL files for ODBC reports
+        _sql_dir_raw = self._get("paths", "sql_dir", "sql")
+        _sql_dir_path = Path(_sql_dir_raw)
+        self.sql_dir: Path = (
+            _sql_dir_path if _sql_dir_path.is_absolute() else _REPO_ROOT / _sql_dir_path
+        )
 
         # Embedded logo base64 (extracted from template RDL on first access)
         self._logo_b64: str | None = None
@@ -51,6 +86,18 @@ class PbiConfig:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    def _parse_kw_section(self, section: str) -> list[tuple[str, list[str]]]:
+        """Parse a comma-separated keyword section into an ordered list of
+        (key, [keyword, ...]) tuples.  Keywords are lowercased for matching."""
+        if not self._cp.has_section(section):
+            return []
+        result = []
+        for key, val in self._cp.items(section):
+            keywords = [kw.strip().lower() for kw in val.split(",") if kw.strip()]
+            if keywords:
+                result.append((key, keywords))
+        return result
 
     def _get(self, section: str, key: str, default: str) -> str:
         try:
@@ -79,6 +126,51 @@ class PbiConfig:
         """Return the canonical DataSource Name for *model_name*."""
         ws_slug = self.workspace_name.replace(" ", "").replace("-", "")
         return f"{ws_slug}_{model_name}"
+
+    # ------------------------------------------------------------------
+    # Datasource inference  (driven by pbi.properties keyword tables)
+    # ------------------------------------------------------------------
+
+    def infer_datasource(self, report: dict) -> str:
+        """Return 'snowflake', 'db2', or 'semantic_model' for *report*.
+
+        Matches the combined name + summary + notes + legacy_reports text
+        against [datasource_keywords] in pbi.properties.  First matching
+        key wins; falls back to 'semantic_model' if no keyword matches.
+        """
+        # legacy_reports is a BO folder path — not a data-source indicator.
+        # Limiting to name + summary + notes avoids false positives like
+        # reports stored under a "Security" BO folder being flagged as Snowflake.
+        text = " ".join([
+            report.get("name", ""),
+            report.get("summary", ""),
+            report.get("notes", ""),
+        ]).lower()
+        for ds_type, keywords in self._datasource_keywords:
+            if any(kw in text for kw in keywords):
+                return ds_type
+        return "semantic_model"
+
+    def infer_semantic_model(self, report: dict) -> str:
+        """Return the best-matching semantic model name for *report*.
+
+        Matches the report name + summary against [model_keywords] in
+        pbi.properties.  First matching model wins.  When nothing matches,
+        returns the last model listed in [model_keywords] (put the broadest
+        dataset last in the file).  Falls back to the first key in [datasets]
+        if [model_keywords] is empty, or 'TODO_SemanticModel' if neither is set.
+        """
+        text = (report.get("name", "") + " " + report.get("summary", "")).lower()
+        for model, keywords in self._model_keywords:
+            if any(kw in text for kw in keywords):
+                return model
+        # Default: last model in [model_keywords] (broadest / catch-all)
+        if self._model_keywords:
+            return self._model_keywords[-1][0]
+        # Last resort: first dataset configured in [datasets]
+        if self.dataset_guids:
+            return next(iter(self.dataset_guids))
+        return "TODO_SemanticModel"
 
     # ------------------------------------------------------------------
     # Logo extraction
