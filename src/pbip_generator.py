@@ -488,10 +488,12 @@ def generate_pbip(report: dict, output_dir: str) -> str:
 def _infer_semantic_model(report: dict) -> str:
     """Return the best-matching semantic model name for *report*.
 
-    Delegates entirely to cfg.infer_semantic_model(), which reads model names
-    and keywords from [model_keywords] in pbi.properties.  No model names are
-    hardcoded here — add or remove datasets by editing pbi.properties only.
+    Checks ``report['_spec_model']`` first (set by spec_parser when the spec
+    confirms the model explicitly), then delegates to cfg.infer_semantic_model()
+    which reads [model_keywords] from pbi.properties.
     """
+    if report.get("_spec_model"):
+        return report["_spec_model"]
     c = _get_cfg()
     if c is not None:
         return c.infer_semantic_model(report)
