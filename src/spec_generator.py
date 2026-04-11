@@ -564,10 +564,39 @@ def generate_md(
         ]
     else:
         model = semantic_model or "TODO_SemanticModel"
+        if _cfg is not None:
+            ds_name = _cfg.datasource_name(model)
+            cs      = _cfg.connect_string(model)
+            guid    = _cfg.get_dataset_guid(model)
+        else:
+            ds_name = f"TODO_WorkspaceSlug_{model}"
+            cs      = (
+                "Data Source=pbiazure://api.powerbi.com/;"
+                "Identity Provider=\"https://login.microsoftonline.com/organizations,"
+                " https://analysis.windows.net/powerbi/api, TODO_TENANT_ID\";"
+                "Initial Catalog=sobe_wowvirtualserver-TODO_GUID;"
+                "Integrated Security=ClaimsToken"
+            )
+            guid = "TODO_GUID"
+        # Format connection string: one property per line
+        cs_lines = re.sub(r';\s*(?=[A-Z])', ';\n', cs).splitlines()
         lines += [
-            "- **Type:** Semantic Model (Power BI Dataset)",
-            f"- **Model:** `{model}`",
-            "- **Connection:** shared Fabric semantic model (no direct SQL)",
+            f"- **Name:** `{ds_name}`",
+            "- **Provider:** `PBIDATASET`",
+            "- **Connection string:**",
+            "  ```",
+        ]
+        for cs_line in cs_lines:
+            lines.append(f"  {cs_line}")
+        lines += [
+            "  ```",
+            f"- **Semantic model:** `{model}.SemanticModel` (dataset GUID: `{guid}`)",
+            "- **Table used:** *(specify the table name from the semantic model)*",
+            "",
+            "> **Note:** Parameters are applied via Power BI service parameter binding — they are "
+            "**not** passed as explicit query parameters in the DAX `EVALUATE` statement. "
+            "The semantic model filters the data based on the bound parameter values before "
+            "the query executes.",
         ]
     lines.append("")
 

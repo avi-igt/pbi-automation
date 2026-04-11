@@ -40,9 +40,29 @@
 
 ## Data Source
 
-- **Name:** MO_Snowflake
-- **Connection:** Shared data source — `MO_Snowflake.rds`
-- **Schema(s) used:** {e.g. financial, dimcore, instant — list all Snowflake schemas queried}
+<!--
+  SEMANTIC MODEL (most paginated reports)
+  Replace {WorkspaceSlug}, {ModelName}, {tenant-id}, and {dataset-guid} with real values.
+  WorkspaceSlug = workspace_name with spaces and dashes removed  (e.g. MissouriD1V1)
+  ModelName     = the MO_* dataset used by this report            (e.g. MO_Sales)
+  GUIDs are in the Fabric workspace URL or in pbi.properties [datasets].
+-->
+
+- **Name:** `{WorkspaceSlug}_{ModelName}`  *(e.g. `MissouriD1V1_MO_Sales`)*
+- **Provider:** `PBIDATASET`
+- **Connection string:**
+  ```
+  Data Source=pbiazure://api.powerbi.com/;
+  Identity Provider="https://login.microsoftonline.com/organizations,
+    https://analysis.windows.net/powerbi/api,
+    {tenant-id}";
+  Initial Catalog=sobe_wowvirtualserver-{dataset-guid};
+  Integrated Security=ClaimsToken
+  ```
+- **Semantic model:** `{ModelName}.SemanticModel` (dataset GUID: `{dataset-guid}`)
+- **Table used:** `{Table name from the semantic model}`
+
+> **Note:** Parameters are applied via Power BI service parameter binding — they are **not** passed as explicit query parameters in the DAX `EVALUATE` statement. The semantic model filters the data based on the bound parameter values before the query executes.
 
 ---
 
