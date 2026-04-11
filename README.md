@@ -12,7 +12,7 @@
 
 **Turn a Functional Requirements Document into Power BI report files in seconds — not days.**
 
-[Quick Start](#quick-start) · [Pipeline](#pipeline) · [After Generation](#after-generation) · [Output Formats](#output-file-formats) · [Configuration](#configuration) · [Extending](#extending-the-tool) · [Troubleshooting](#troubleshooting)
+[Quick Start](#quick-start) · [Pipeline](#pipeline) · [Configuration](#configuration) · [Data Sources](#data-sources) · [After Generation](#after-generation) · [Output Formats](#output-file-formats) · [Extending](#extending-the-tool) · [Troubleshooting](#troubleshooting)
 
 </div>
 
@@ -20,9 +20,11 @@
 
 ## Why pbi-automation?
 
-A typical FRD describes Power BI reports with various attributes: layouts, parameters, filters, requirements. Translating each one manually into `.rdl` XML or `.pbip` JSON takes developers hours per report.
+A typical FRD describes Power BI reports with attributes: layouts, parameters, filters, requirements. Translating each one manually into `.rdl` XML or `.pbip` JSON takes developers hours per report.
 
 **pbi-automation parses the FRD once and generates all report scaffolding automatically** — correct RDL structure, proper semantic model bindings, page-per-section PBIP layouts, and human-readable review specs. Developers start from a working skeleton instead of a blank canvas.
+
+Everything deployment-specific lives in **`pbi.properties`** — workspace name, tenant ID, dataset GUIDs, ODBC DSN names, brand colours, fonts, and keyword rules. To deploy for a different state or environment: edit `pbi.properties` only, no code changes required.
 
 ---
 
@@ -41,7 +43,7 @@ A typical FRD describes Power BI reports with various attributes: layouts, param
 | 3 | `pbip_generator.py` | `frd_parsed.json` | `output/pbip/**/` | Visual report folders with pages and visuals |
 | 4 | `spec_generator.py` | FRD `.docx` | `output/specs/*.md` | Review docs only — not used as generator input |
 
-**The JSON is the checkpoint.** After Step 1, open `output/json/frd_parsed.json`, verify field names, fix any incorrect `report_format` values, then run Steps 2–4. All generators read from JSON — there is no lossy intermediate format.
+**The JSON is the checkpoint.** After Step 1, open `output/json/frd_parsed.json`, verify field names, fix any incorrect `report_format` or `datasource_type` values, then run Steps 2–4. All generators read from JSON — there is no lossy intermediate format.
 
 ---
 
@@ -53,7 +55,7 @@ A typical FRD describes Power BI reports with various attributes: layouts, param
 
 ### Windows
 
-Fully supported. Run in **Windows Terminal** or **PowerShell** for correct Unicode block-art rendering. CLI colours are automatically disabled on Windows — output is plain text but fully functional.
+Fully supported. Run in **Windows Terminal** or **PowerShell** for correct Unicode rendering. CLI colours are automatically disabled on Windows — output is plain text but fully functional.
 
 ---
 
@@ -98,7 +100,7 @@ All report files land in `output/`.
 ### Full pipeline
 
 ```bash
-# Default — looks for the FRD in the current directory
+# Default — looks for the FRD path configured in pbi.properties
 python generate_all.py
 
 # Explicit FRD path
@@ -124,7 +126,7 @@ python generate_all.py --only spec    # Step 4: FRD → .md review docs
 python generate_all.py --only parse
 
 # 2. Edit output/json/frd_parsed.json if needed
-#    (fix report_format, rename columns, adjust folders, etc.)
+#    (fix report_format, datasource_type, rename columns, adjust folders, etc.)
 
 # 3. Generate reports from the reviewed JSON
 python generate_all.py --only rdl
@@ -151,30 +153,130 @@ python src/spec_generator.py "FRD.docx" --output-dir output/specs
 
 ## Configuration
 
-Edit **`pbi.properties`** before running. The most important values:
+All deployment-specific settings live in **`pbi.properties`**. Edit this file before running.
+
+### Fabric workspace
 
 ```ini
 [fabric]
 workspace_name  = Missouri - D1V1
 tenant_id       = your-tenant-guid-here
-
-[datasets]
-MO_Sales            = dataset-guid-from-fabric-url
-MO_CoreTables       = dataset-guid-from-fabric-url
-# ... one line per semantic model
-
-[rdl]
-page_width      = 11in       # landscape letter
-page_height     = 8.5in
-default_font    = Segoe UI
-
-[paths]
-rdl_template    = templates/MO_Report_Template.rdl   # logo source
-frd_docx        = MO - Performance Wizard Ad Hoc Reporting FRD v1.0.docx
 ```
 
-Dataset GUIDs are found in the Fabric workspace URL when viewing a dataset:  
+### Dataset GUIDs
+
+One line per semantic model. GUIDs are found in the Fabric workspace URL:  
 `app.powerbi.com/groups/<workspace-id>/datasets/<dataset-guid>/...`
+
+```ini
+[datasets]
+MO_Sales            = 45ddd7fc-a26e-4f4b-86c5-fac56b42553b
+MO_DrawData         = dfff48d9-8c93-4875-ab98-d4ca8b20e24c
+MO_WinnerData       = 96a3324d-ae40-47a6-bbd2-a83223f5a843
+# ... one entry per semantic model used by reports
+```
+
+### Datasource type detection
+
+Keywords matched **case-insensitively** against report name + summary + notes. First matching key wins. Reports not matching any keyword default to `semantic_model`.
+
+```ini
+[datasource_keywords]
+snowflake = RDST, TMIR, Security
+db2       = claims, payments, annuities, debt, setoff, player, ssn, claimant
+```
+
+### Semantic model selection
+
+Keywords matched against report name + summary. First match wins. Put broader/catch-all models last.
+
+```ini
+[model_keywords]
+MO_LVMTransactional = lvm transaction, lvm transactional
+MO_Invoice          = brightstar invoice, brightstar
+MO_DrawData         = draw game, jackpot, winning number, cash pop, keno, draw data
+MO_WinnerData       = winner, prize, claimant
+MO_Payments         = payment, check, annuity, 1042, tax report, claim
+MO_Inventory        = inventory, pack, activated, aging, bin, scratchers
+MO_IntervalSales    = interval, hourly, weekly
+MO_LVMSales         = lvm, vending, vending machine
+MO_CoreTables       = retailer list, chain store, district, device list, terminal list, terminal
+MO_Promotions       = promotion, promo, cashless, device
+MO_Sales            = sales, validations, cancels, retailer, wager, ticket, revenue
+```
+
+### ODBC data sources
+
+```ini
+[odbc]
+db2_source_name     = BOADB            # DB2 / ARDB data source name
+db2_dsn             = MOS-Q1-BOADB    # DB2 DSN
+
+sfodbc_source_name  = LPC_E2_SFODBC   # Snowflake ODBC data source name
+sfodbc_dsn          = MOS-PX-SFODBC   # Snowflake DSN
+```
+
+### RDL layout defaults
+
+```ini
+[rdl]
+page_width      = 11in
+page_height     = 8.5in
+margin          = 0.2in
+default_font    = Segoe UI
+title_font      = Segoe UI Light
+title_font_size = 14pt
+timezone        = Central Standard Time
+```
+
+### PBIP canvas and branding
+
+```ini
+[pbip]
+canvas_width        = 1280
+canvas_height       = 720
+theme_name          = CY22SU08
+brand_color_grid    = #D6DBEA
+brand_color_header  = #FAFAFA
+```
+
+### File paths
+
+```ini
+[paths]
+rdl_template    = templates/MO_Report_Template.rdl   # logo source
+frd_docx        = Your FRD v1.0.docx                 # default FRD path
+sql_dir         = sql                                  # hand-authored SQL directory
+```
+
+---
+
+## Data Sources
+
+The tool detects one of three datasource types per report based on keywords in `pbi.properties`:
+
+| Type | Connection | When used |
+|---|---|---|
+| `semantic_model` | Fabric PBIDATASET (DAX) | Default — most reports |
+| `db2` | ODBC → DB2 / ARDB (`BOA_PS` schema) | Claims, payments, annuities, tax reports |
+| `snowflake` | ODBC → Snowflake (`TXNDTL`, `DIMCORE` schemas) | TMIR, RDST, Security reports |
+
+Detection is keyword-driven via `[datasource_keywords]` in `pbi.properties`. To add or change which reports use a particular datasource, edit the keyword lists — no code changes needed.
+
+### Hand-authored SQL for ODBC reports
+
+For `db2` and `snowflake` reports, the generator looks for a `.sql` file in the `sql/` directory. The file name must match the report name (spaces → underscores):
+
+```
+sql/
+  1042_Tax.sql
+  Debt_Offsets.sql
+  TMIR_Retailer.sql
+```
+
+If a `.sql` file is found it is embedded verbatim in the generated `.rdl`. If not found, the generator produces an auto-stub with a comment indicating the expected filename. The stub is valid XML but requires a developer to write the real query.
+
+The `sql/` directory is **not committed** — SQL files are maintained alongside the reports they belong to, outside the generator repo.
 
 ---
 
@@ -185,9 +287,10 @@ Dataset GUIDs are found in the Fabric workspace URL when viewing a dataset:
 | Step | What to do |
 |---|---|
 | 1 | Open the `.rdl` in **Power BI Report Builder** |
-| 2 | Verify `<ConnectString>` — the tool auto-populates from `pbi.properties` |
-| 3 | Replace `TODO_Table[ColumnName]` placeholders in the DAX query with real field names |
-| 4 | Validate layout and publish to Fabric |
+| 2 | Verify `<ConnectString>` — auto-populated from `pbi.properties` dataset GUIDs |
+| 3 | For semantic model reports: replace `TODO_Table[ColumnName]` stubs with real DAX field references |
+| 4 | For ODBC reports: verify or replace the embedded SQL query |
+| 5 | Validate layout and publish to Fabric |
 
 ### Visual Reports (`.pbip`)
 
@@ -200,7 +303,7 @@ Dataset GUIDs are found in the Fabric workspace URL when viewing a dataset:
 
 ### Review Docs (`.md` specs)
 
-The `output/specs/` folder contains one `.md` file per report with the extracted metadata, parameters, layout columns, and business rules. These are **documentation artifacts** — use them for developer handoff, review meetings, or writing DAX queries. They are not used as generator input.
+The `output/specs/` folder contains one `.md` file per report with extracted metadata, parameters, layout columns, business rules, and the inferred data source (type, connection, SQL path). These are **documentation artifacts** for developer handoff and review meetings — not used as generator input.
 
 > **Tip:** Use `--report "Name"` to generate and test one report at a time before running the full pipeline.
 
@@ -215,6 +318,7 @@ output/rdl/
   Reports_Brightstar/
     Active_Keno_Retailers_Report.rdl
     Brightstar_Invoice_Report.rdl
+    1042_Tax.rdl
     ...
   Reports_Lottery_Sales/
     Daily_Sales_Summary.rdl
@@ -226,14 +330,14 @@ Each generated `.rdl` includes:
 | Element | What's generated |
 |---|---|
 | XML schema | Correct 2016 RDL with `<ReportSections>` wrapper + all namespaces |
-| Data source | `PBIDATASET` (semantic model) or `ODBC` (DB2 / Snowflake) |
-| Dataset query | DAX `EVALUATE SUMMARIZECOLUMNS(...)` stub or SQL stub |
-| ConnectString | Auto-populated from `pbi.properties` dataset GUIDs |
+| Data source | `PBIDATASET` (semantic model) or `ODBC` (DB2 / Snowflake) — wired from `pbi.properties` |
+| Dataset query | DAX `EVALUATE SUMMARIZECOLUMNS(...)` stub or hand-authored / auto-generated SQL |
+| ConnectString | Auto-populated from `pbi.properties` GUIDs and DSN names |
 | Parameters | `<ReportParameter>` + `<QueryParameter>` linkage |
 | Tablix | Header row + data row for every layout column |
 | Page header | Report name + logo + run date/time |
 | Page footer | Report name + page X of Y |
-| Comments | All FRD requirement IDs embedded as XML comments |
+| Comments | All FRD requirement IDs embedded as XML comments; `sql_source: file/stub` annotation |
 
 ### Visual Reports — `.pbip`
 
@@ -255,37 +359,62 @@ output/pbip/
       README.md                ← developer TODO checklist
 ```
 
+Each generated `.pbip` includes:
+
+| Element | What's generated |
+|---|---|
+| `definition.pbir` | `byPath` binding to the best-matched `MO_*.SemanticModel` (from `pbi.properties`) |
+| Pages | One page per layout section from the FRD |
+| Visual type | Inferred from section/column names: table, bar, line, pie, or card |
+| Slicers | One slicer per filter defined in the FRD |
+| Title textbox | Auto-populated from the section display name |
+| `README.md` | Full requirements list + step-by-step checklist per report |
+
 ### Review Docs — `.md`
 
 ```
 output/specs/
+  1042-tax.md
   chain-store-list-report.md
   daily-sales-summary-by-terminal-report.md
   ...
 ```
 
-One file per report containing: title, format, folder, legacy path, parameters/filters table, layout columns, and all business rule requirements.
+One file per report containing: title, format, folder, legacy path, data source (type + connection details + SQL path), parameters/filters table, layout columns with inferred types and formats, and all business rule requirements.
 
 ---
 
-## Semantic Model Mapping
+## Project Structure
 
-The tool auto-selects the best-fit `MO_*` semantic model based on report name and description:
-
-| Semantic Model | Keywords matched |
-|---|---|
-| `MO_Sales` | sales, retailer, wager, ticket, revenue |
-| `MO_Inventory` | inventory, pack, activated, aging, bin, scratchers |
-| `MO_Payments` | payment, check, 1042, tax, claim |
-| `MO_DrawData` | draw, jackpot, winning number, cash pop, keno |
-| `MO_WinnerData` | winner, prize |
-| `MO_Promotions` | promotion, promo, cashless |
-| `MO_Invoice` | invoice, brightstar |
-| `MO_IntervalSales` | interval, hourly |
-| `MO_CoreTables` | retailer list, chain store, district, terminal, device |
-| `MO_LVMSales` | lvm, vending machine |
-
-Override per-report by editing `definition.pbir` (visual) or the `<ConnectString>` (paginated).
+```
+pbi-automation/
+  generate_all.py          ← pipeline entry point (run this)
+  pbi.properties           ← all deployment config: workspace, GUIDs, DSNs, keywords, fonts
+  requirements.txt
+  assets/
+    banner.svg
+    pipeline.svg
+  src/
+    config.py              ← reads pbi.properties; exposes cfg singleton used by all generators
+    frd_parser.py          ← .docx → structured JSON (datasource_type inferred via pbi.properties)
+    spec_generator.py      ← .docx → .md review docs (standalone or via pipeline)
+    rdl_generator.py       ← JSON → .rdl XML (paginated reports)
+    pbip_generator.py      ← JSON → .pbip folder (visual reports)
+  sql/                     ← hand-authored SQL files for ODBC reports (not committed)
+    1042_Tax.sql           ← example: name matches report name with spaces→underscores
+  templates/
+    MO_Report_Template.rdl ← source of embedded logo (base64 extracted at runtime)
+    specs/
+      paginated-report-spec-template.md
+      paginated-report-ODBC-spec-template.md
+      paginated-report-snowflake-odbc-spec-template.md
+      visual-report-spec-template.md
+  output/                  ← generated files (not committed)
+    json/frd_parsed.json   ← ★ human checkpoint — edit before re-running generators
+    rdl/                   ← generated .rdl files
+    pbip/                  ← generated .pbip folders
+    specs/                 ← generated .md review docs
+```
 
 ---
 
@@ -309,43 +438,25 @@ Reports with `Report Format` = `Visual` / `Power BI` / `.pbip` → generate `.pb
 
 ---
 
-## Project Structure
-
-```
-pbi-automation/
-  generate_all.py          ← pipeline entry point (run this)
-  pbi.properties           ← Fabric / dataset / RDL configuration
-  requirements.txt
-  assets/
-    banner.svg             ← project banner
-    pipeline.svg           ← pipeline diagram
-  src/
-    frd_parser.py          ← .docx → structured JSON
-    spec_generator.py      ← .docx → .md review docs (standalone or via pipeline)
-    rdl_generator.py       ← JSON → .rdl XML (paginated reports)
-    pbip_generator.py      ← JSON → .pbip folder (visual reports)
-    config.py              ← reads pbi.properties; logo, ConnectString, GUIDs
-  templates/
-    MO_Report_Template.rdl ← source of embedded logo + header/footer structure
-    specs/                 ← .md spec templates (paginated / visual)
-  output/                  ← generated files (not committed)
-    json/frd_parsed.json   ← ★ human checkpoint — edit before re-running generators
-    rdl/                   ← generated .rdl files
-    pbip/                  ← generated .pbip folders
-    specs/                 ← generated .md review docs
-```
-
----
-
 ## Extending the Tool
+
+### Add or change a semantic model
+
+Edit `[datasets]` and `[model_keywords]` in `pbi.properties`. No code changes required.  
+Place more-specific models before broader ones; the last entry is the catch-all default.
+
+### Add or change a datasource type
+
+Edit `[datasource_keywords]` in `pbi.properties`. No code changes required.  
+More-specific keyword sets should be listed before broader ones.
+
+### Add a new ODBC data source variant
+
+Edit `src/rdl_generator.py` → `generate_rdl()`: add a branch alongside the `db2` / `snowflake` cases with the correct `<DataProvider>` and `<ConnectString>`. Add the corresponding DSN config to `[odbc]` in `pbi.properties`.
 
 ### Support a new FRD field
 
 Edit `src/frd_parser.py` → `parse_summary()`: add the new field name to the `fields` list.
-
-### Support a new datasource
-
-Edit `src/rdl_generator.py` → `generate_rdl()`: add a branch alongside `semantic_model` / `db2` with the correct `<DataProvider>` and `<ConnectString>`.
 
 ### Add a new visual type
 
@@ -354,9 +465,11 @@ Edit `src/pbip_generator.py`:
 2. Add a `make_*_visual()` function following the same pattern
 3. Call it from `build_page_visuals()`
 
-### Change how reports are matched to semantic models
+### Deploy for a different state
 
-Edit `src/rdl_generator.py` → `guess_semantic_model()` and `src/pbip_generator.py` → `_infer_semantic_model()`.
+1. Copy `pbi.properties` and update: `workspace_name`, `tenant_id`, all `[datasets]` GUIDs, `[odbc]` DSN names, `[datasource_keywords]` and `[model_keywords]` keyword lists
+2. Replace `templates/MO_Report_Template.rdl` with the new state's template (for logo extraction)
+3. Run the pipeline — no Python changes needed
 
 ---
 
@@ -368,328 +481,26 @@ The package name is `python-docx`, not `docx`: `pip install python-docx`
 **Reports show `"report_format": "Unknown"` in JSON**  
 The `Report Format` field in the FRD summary is blank or non-standard. Find the entry in `output/json/frd_parsed.json` and set it to `"Paginated"` or `"Visual"`, then re-run `--only rdl` or `--only pbip`.
 
-**Columns appear as one long string**  
-Word has no spaces between column names. The parser splits on camelCase boundaries. For all-uppercase or unusual separators, inspect the `raw` field in JSON and adjust `_split_columns()` in `frd_parser.py`.
+**Wrong datasource type detected (e.g. report classified as `snowflake` when it should be `semantic_model`)**  
+Check `[datasource_keywords]` in `pbi.properties`. The matched keyword may be appearing in an unrelated part of the report name or summary. Remove overly broad keywords or tighten the phrases. The detection only searches report name + summary + notes (not legacy path).
 
 **Wrong semantic model selected**  
-Edit `definition.pbir` manually, or adjust the keyword lists in `guess_semantic_model()` / `_infer_semantic_model()`.
+Update `[model_keywords]` in `pbi.properties` — add a more specific keyword for the report to the correct model, or move that model higher in the list. As a quick fix, edit `definition.pbir` (visual) or the `<ConnectString>` (paginated) in the generated output.
+
+**ODBC report has an auto-stub SQL query instead of the real SQL**  
+Place a `.sql` file in the `sql/` directory named after the report (spaces → underscores, e.g. `Debt_Offsets.sql`) and re-run `--only rdl`. The generator will embed it automatically.
+
+**Columns appear as one long string**  
+Word has no spaces between column names. The parser splits on camelCase boundaries. For all-uppercase column names, inspect the `raw` field in `frd_parsed.json` and adjust `_split_columns()` in `frd_parser.py`.
 
 **RDL opens with XML error in Report Builder**  
-Run `python -c "import xml.etree.ElementTree as ET; ET.parse('output/rdl/path/to/file.rdl')"` to pinpoint the bad line, then check for unescaped `<`, `>`, `&`, or `--` in report name, summary, or requirements fields in the JSON.
+Run `python -c "import xml.etree.ElementTree as ET; ET.parse('output/rdl/path/to/file.rdl')"` to pinpoint the bad line, then check for unescaped `<`, `>`, `&`, or `--` in the report name, summary, or requirements fields in the JSON.
 
 ---
 
 <div align="center">
 
-★ Built by the **Brightstar Lottery** Performance Wizard team.
-
-[![GitHub](https://img.shields.io/badge/GitHub-avi--igt%2Fpbi--automation-181717?style=flat-square&logo=github)](https://github.com/avi-igt/pbi-automation)
-[![MIT License](https://img.shields.io/badge/License-MIT-06d6a0?style=flat-square)](LICENSE)
-
-</div>
-
-
----
-
-## Why pbi-automation?
-
-A typical FRD describes Power BI reports with various attributes: layouts, parameters, filters, requirements. Translating each one manually into `.rdl` XML or `.pbip` JSON takes developers hours per report.
-
-**pbi-automation parses the FRD once and generates all report scaffolding automatically** — correct RDL structure, proper semantic model bindings, page-per-section PBIP layouts, and per-report developer checklists. Developers start from a working skeleton instead of a blank canvas.
-
----
-
-## Pipeline
-
-<div align="center">
-<img src="assets/pipeline.svg" alt="FRD → Parser → JSON → RDL / PBIP" width="860"/>
-</div>
-
----
-
-## Prerequisites
-
-- **Python 3.9+**
-- **pip**
-- Your FRD as a `.docx` file (ADO / Performance Wizard format)
-
-### Windows
-
-Fully supported. Run in **Windows Terminal** or **PowerShell** for correct Unicode block-art rendering. CLI colours are automatically disabled on Windows — output is plain text but fully functional.
-
----
-
-## Quick Start
-
-**1. Clone and install**
-
-```bash
-git clone https://github.com/avi-igt/pbi-automation.git
-cd pbi-automation
-pip install -r requirements.txt
-```
-
-**2. Add your FRD**
-
-Copy your FRD `.docx` into the repo root:
-
-```
-pbi-automation/
-  Your FRD v1.0.docx     ← place it here
-  generate_all.py
-  src/
-```
-
-**3. Run**
-
-```bash
-python generate_all.py "Your FRD v1.0.docx"
-```
-
-That's it. All report files land in `output/`.
-
----
-
-## Usage
-
-### Full pipeline
-
-```bash
-# Default — looks for the FRD in the current directory
-python generate_all.py
-
-# Explicit FRD path
-python generate_all.py "path/to/FRD.docx"
-
-# Custom output directory
-python generate_all.py "path/to/FRD.docx" -o ./my-output
-```
-
-### Filter to a single report
-
-```bash
-python generate_all.py --report "Cash Pop"
-python generate_all.py --report "Keno"
-python generate_all.py --report "Invoice"
-```
-
-### Run one step at a time
-
-```bash
-python generate_all.py --only parse   # Step 1 only: FRD → JSON
-python generate_all.py --only rdl     # Step 2 only: JSON → .rdl (requires prior parse)
-python generate_all.py --only pbip    # Step 3 only: JSON → .pbip (requires prior parse)
-```
-
-### Run modules directly
-
-```bash
-python -m src.frd_parser   "FRD.docx"              -o output/json/frd_parsed.json
-python -m src.rdl_generator  output/json/frd_parsed.json  -o output/rdl
-python -m src.pbip_generator output/json/frd_parsed.json  -o output/pbip
-```
-
----
-
-## After Generation
-
-The tool generates correct **structure and wiring** — you only need to fill in the **data bindings**, which come from your Fabric workspace.
-
-### Paginated Reports (`.rdl`)
-
-| Step | What to do |
-|---|---|
-| 1 | Open the `.rdl` in **Power BI Report Builder** |
-| 2 | Update `<ConnectString>` with your Fabric workspace + dataset GUID |
-| 3 | Replace `TODO_Table[ColumnName]` placeholders in the DAX query with real semantic model table/column names (or real SQL for DB2 reports) |
-| 4 | Validate layout and publish to Fabric |
-
-### Visual Reports (`.pbip`)
-
-| Step | What to do |
-|---|---|
-| 1 | Open the report folder's **`README.md`** — it contains the full requirements list and a per-report developer checklist |
-| 2 | Verify `definition.pbir` → `byPath` points to the correct `.SemanticModel` folder (the tool auto-selects based on report name — confirm it is right) |
-| 3 | In each `visual.json`, replace `TODO_Table` with the actual entity/table name from your semantic model |
-| 4 | Open the `.pbip` in **Power BI Desktop (Fabric mode)** and validate visuals |
-
-> **Tip:** Use `--report "Report Name"` to generate and test one report at a time before running the full pipeline.
-
----
-
-## Output File Formats
-
-### Paginated Reports — `.rdl`
-
-```
-output/rdl/
-  Reports_Brightstar/
-    Active_Keno_Retailers_Report.rdl
-    Brightstar_Invoice_Report.rdl
-    ...
-  Reports_Lottery_Sales/
-    Daily_Sales_Summary.rdl
-    ...
-```
-
-Each generated `.rdl` includes:
-
-| Element | What's generated |
-|---|---|
-| XML schema | Correct 2016 RDL with `<ReportSections>` wrapper + all namespaces |
-| Data source | `PBIDATASET` (semantic model) or `ODBC` (DB2 / Snowflake) |
-| Dataset query | DAX `EVALUATE SUMMARIZECOLUMNS(...)` stub or SQL stub |
-| Parameters | `<ReportParameter>` + `<QueryParameter>` linkage |
-| Tablix | Header row + data row for every layout column |
-| Page header | Report name + run date/time |
-| Page footer | Report name + page X of Y |
-| Comments | All FRD requirement IDs embedded as XML comments |
-
-**Developer steps after generation:**
-1. Update `<ConnectString>` with your Fabric workspace + dataset GUID
-2. Replace `TODO_Table[ColumnName]` with real semantic model field names (or real SQL for DB2)
-3. Open in Power BI Report Builder and validate
-
-### Visual Reports — `.pbip`
-
-```
-output/pbip/
-  Reports_Brightstar/
-    Cash_Pop_Performance.pbip
-    Cash_Pop_Performance.Report/
-      definition.pbir          ← semantic model binding
-      definition/
-        report.json            ← theme & settings
-        version.json
-        pages/
-          pages.json           ← page order
-          ReportSection1/      ← one per FRD layout section
-            page.json
-            visuals/
-              {id}/visual.json ← title, slicers, data visual
-          ReportSection2/
-            ...
-      README.md                ← developer TODO checklist
-```
-
-Each generated `.pbip` includes:
-
-| Element | What's generated |
-|---|---|
-| `definition.pbir` | `byPath` binding to the best-matched `MO_*.SemanticModel` |
-| Pages | One page per layout section from the FRD |
-| Visual type | Inferred from section/column names: table, bar, line, pie, or card |
-| Slicers | One slicer per filter defined in the FRD |
-| Title textbox | Auto-populated from the section display name |
-| `README.md` | Full requirements list + step-by-step checklist per report |
-
-**Developer steps after generation:**
-1. Verify `definition.pbir` `byPath` points to the correct `.SemanticModel`
-2. In each `visual.json`, replace `TODO_Table` with the actual entity name
-3. Open the `.pbip` in Power BI Desktop (Fabric) and validate
-
----
-
-## Semantic Model Mapping
-
-The tool auto-selects the best-fit `MO_*` semantic model based on report name and description:
-
-| Semantic Model | Keywords matched |
-|---|---|
-| `MO_Sales` | sales, retailer, wager, ticket, revenue |
-| `MO_Inventory` | inventory, pack, activated, aging, bin, scratchers |
-| `MO_Payments` | payment, check, 1042, tax, claim |
-| `MO_DrawData` | draw, jackpot, winning number, cash pop, keno |
-| `MO_WinnerData` | winner, prize |
-| `MO_Promotions` | promotion, promo, cashless |
-| `MO_Invoice` | invoice, brightstar |
-| `MO_IntervalSales` | interval, hourly |
-| `MO_CoreTables` | retailer list, chain store, district, terminal, device |
-| `MO_LVMSales` | lvm, vending machine |
-
-Override per-report by editing `definition.pbir` (visual) or the `<ConnectString>` (paginated).
-
----
-
-## FRD Format Requirements
-
-This tool is designed for FRDs in the **Performance Wizard / Azure DevOps** format:
-
-- Reports are **Heading 2** sections under folder **Heading 1** sections
-- Each section contains **ADO SDT content controls** (Work Item type) with sub-sections:
-
-| Sub-section | Content |
-|---|---|
-| `Summary` | Report title, format (Paginated/Visual), folder, legacy info |
-| `Parameters` | Label · Single/Multiple · Notes |
-| `Filters` | Label · Type (Global/Page/Local) · Context · Single/Multiple |
-| `Layout` | Column names, optionally split by `<Tab N>`, `<Page N>`, `<Table N>` markers |
-| `Requirements` | ADO work item IDs + requirement text |
-
-Reports with `Report Format` = `Paginated` / `.rdl` → generate `.rdl`  
-Reports with `Report Format` = `Visual` / `Power BI` / `.pbip` → generate `.pbip`
-
----
-
-## Project Structure
-
-```
-pbi-automation/
-  generate_all.py          ← pipeline entry point (run this)
-  requirements.txt
-  assets/
-    banner.svg             ← project banner
-    pipeline.svg           ← pipeline diagram
-  src/
-    frd_parser.py          ← .docx → structured JSON
-    rdl_generator.py       ← JSON → .rdl XML (paginated)
-    pbip_generator.py      ← JSON → .pbip folder (visual)
-  output/                  ← generated files (not committed)
-    json/frd_parsed.json
-    rdl/
-    pbip/
-```
-
----
-
-## Extending the Tool
-
-### Support a new FRD field
-
-Edit `src/frd_parser.py` → `parse_summary()`: add the new field name to the `fields` list.
-
-### Support a new datasource
-
-Edit `src/rdl_generator.py` → `generate_rdl()`: add a branch alongside `semantic_model` / `db2` with the correct `<DataProvider>` and `<ConnectString>`.
-
-### Add a new visual type
-
-Edit `src/pbip_generator.py`:
-1. Add keywords to `_CHART_HINTS`
-2. Add a `make_*_visual()` function following the same pattern
-3. Call it from `build_page_visuals()`
-
----
-
-## Troubleshooting
-
-**`ModuleNotFoundError: No module named 'docx'`**  
-The package name is `python-docx`, not `docx`: `pip install python-docx`
-
-**Reports show `"report_format": "Unknown"` in JSON**  
-The `Report Format` field in the FRD summary is blank or non-standard. Find the entry in `output/json/frd_parsed.json` and check the source FRD section.
-
-**Columns appear as one long string**  
-Word has no spaces between column names. The parser splits on camelCase boundaries. For all-uppercase or unusual separators, inspect the `raw` field in JSON and adjust `_split_columns()` in `frd_parser.py`.
-
-**Wrong semantic model selected**  
-Edit `definition.pbir` manually, or add report-specific keywords to `_infer_semantic_model()` in `pbip_generator.py`.
-
----
-
-<div align="center">
-
-★ Built by the **Brightstar Lottery** Performance Wizard team.
+Built by the **Brightstar Lottery** Performance Wizard team.
 
 [![GitHub](https://img.shields.io/badge/GitHub-avi--igt%2Fpbi--automation-181717?style=flat-square&logo=github)](https://github.com/avi-igt/pbi-automation)
 [![MIT License](https://img.shields.io/badge/License-MIT-06d6a0?style=flat-square)](LICENSE)
