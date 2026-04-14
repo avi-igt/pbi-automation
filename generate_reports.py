@@ -176,8 +176,8 @@ def main():
 
         json_out = output_base / "json" / "frd_parsed.json"
         json_out.parent.mkdir(parents=True, exist_ok=True)
-        with open(json_out, "w") as f:
-            json.dump(frd, f, indent=2)
+        with open(json_out, "w", encoding="utf-8") as f:
+            json.dump(frd, f, indent=2, ensure_ascii=False)
 
         _ok(f"{_c(_W, str(frd['total_reports']))} reports parsed  {_c(_GRAY, f'({elapsed:.1f}s)')}")
         _info(f"{_c(_O, str(frd['paginated_count']))} paginated (.rdl)   {_c(_Y, str(frd['visual_count']))} visual (.pbip)")
@@ -195,7 +195,7 @@ def main():
         if not json_out.exists():
             print(f"  {_c(_O, '✖')}  {json_out} not found — run without --only first")
             sys.exit(1)
-        with open(json_out) as f:
+        with open(json_out, encoding="utf-8") as f:
             frd = json.load(f)
 
     # Apply --report filter

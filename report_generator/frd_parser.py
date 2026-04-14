@@ -378,8 +378,8 @@ if __name__ == "__main__":
     result = parse_frd(args.docx)
     out_path = Path(args.output)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w") as f:
-        json.dump(result, f, indent=2)
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(result, f, indent=2, ensure_ascii=False)
 
     print(f"Parsed {result['total_reports']} reports → {out_path}")
     print(f"  Paginated: {result['paginated_count']}")

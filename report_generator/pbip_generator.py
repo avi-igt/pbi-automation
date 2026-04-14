@@ -597,7 +597,7 @@ if __name__ == "__main__":
     ap.add_argument("--report", help="Filter to a specific report name (partial match)")
     args = ap.parse_args()
 
-    with open(args.frd_json) as f:
+    with open(args.frd_json, encoding="utf-8") as f:
         frd = json.load(f)
 
     if args.report:
