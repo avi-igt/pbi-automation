@@ -8,7 +8,7 @@ prefixed keys (e.g. ``_spec_model``) so the generators can use them in
 preference to auto-inferred values.
 
 Usage:
-    from src.spec_parser import parse_spec
+    from report_generator.spec_parser import parse_spec
     report = parse_spec("output/specs/mo-wild-ball-sales-report.md")
 """
 

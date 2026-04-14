@@ -65,7 +65,7 @@ def xe(text: str) -> str:
 
 
 try:
-    from src.config import cfg as _cfg
+    from report_generator.config import cfg as _cfg
 except ImportError:
     try:
         from config import cfg as _cfg  # when run directly
@@ -452,7 +452,7 @@ def generate_rdl(report: dict) -> str:
         # Use spec-confirmed values when present (set by spec_parser from the Data Source section)
         ds_name = (
             report.get("_spec_datasource_name")
-            or (c.datasource_name(semantic_model) if c else f"MissouriD1V1_{semantic_model}")
+            or (c.datasource_name(semantic_model) if c else f"MissouriD1V1_{semantic_model.replace(' ', '_')}")
         )
         connect_str = (
             report.get("_spec_connect_string")

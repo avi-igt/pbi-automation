@@ -10,7 +10,7 @@ Standalone CLI usage:
     python src/spec_generator.py "path/to/FRD.docx" --output-dir ./specs
 
 Library usage (from generate_all.py):
-    from src.spec_generator import generate_all_specs
+    from report_generator.spec_generator import generate_all_specs
     generate_all_specs(frd_path, output_dir)
 
 Requires: pip install python-docx
@@ -31,7 +31,7 @@ except ImportError:
     sys.exit(1)
 
 try:
-    from src.config import cfg as _cfg
+    from report_generator.config import cfg as _cfg
 except ImportError:
     try:
         from config import cfg as _cfg
@@ -569,7 +569,7 @@ def generate_md(
             cs      = _cfg.connect_string(model)
             guid    = _cfg.get_dataset_guid(model)
         else:
-            ds_name = f"TODO_WorkspaceSlug_{model}"
+            ds_name = f"TODO_WorkspaceSlug_{model.replace(' ', '_')}"
             cs      = (
                 "Data Source=pbiazure://api.powerbi.com/;"
                 "Identity Provider=\"https://login.microsoftonline.com/organizations,"

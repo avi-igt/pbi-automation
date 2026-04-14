@@ -2,7 +2,7 @@
 config.py — reads pbi.properties and exposes Fabric / RDL configuration.
 
 Usage:
-    from src.config import cfg
+    from report_generator.config import cfg
     cs = cfg.connect_string("MO_Sales")
     logo = cfg.logo_b64           # base64 PNG or "" if template not found
 """
@@ -16,7 +16,8 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).parent.parent
 
 _PROPERTIES_FILE = _REPO_ROOT / "pbi.properties"
-_FALLBACK_TEMPLATE = _REPO_ROOT / "templates" / "MO_Report_Template.rdl"
+_PKG_ROOT = Path(__file__).parent
+_FALLBACK_TEMPLATE = _PKG_ROOT / "templates" / "MO_Report_Template.rdl"
 
 
 class PbiConfig:
@@ -37,11 +38,19 @@ class PbiConfig:
             for k, v in self._cp.items("datasets"):
                 self.dataset_guids[k.upper().replace(" ", "_")] = v.strip()
 
-        # ODBC data sources
+        # ODBC data sources (Lane 3 — paginated reports / batch exports only)
         self.db2_source_name = self._get("odbc", "db2_source_name", "BOADB")
         self.db2_dsn = self._get("odbc", "db2_dsn", "MOS-Q1-BOADB")
         self.sfodbc_source_name = self._get("odbc", "sfodbc_source_name", "LPC_E2_SFODBC")
         self.sfodbc_dsn = self._get("odbc", "sfodbc_dsn", "MOS-PX-SFODBC")
+
+        # Snowflake native connector (ADBC 2.0) — Lane 1 / Lane 2 only
+        self.sf_native_host = self._get(
+            "snowflake_native", "host", "TODO_SF_NATIVE_HOST"
+        )
+        self.sf_native_implementation = self._get(
+            "snowflake_native", "implementation", "2.0"
+        )
 
         # Datasource type detection — ordered list of (ds_type, [keywords])
         # e.g. [("snowflake", ["rdst", "tmir", ...]), ("db2", ["claims", ...])]
@@ -77,7 +86,7 @@ class PbiConfig:
         _sql_dir_raw = self._get("paths", "sql_dir", "sql")
         _sql_dir_path = Path(_sql_dir_raw)
         self.sql_dir: Path = (
-            _sql_dir_path if _sql_dir_path.is_absolute() else _REPO_ROOT / _sql_dir_path
+            _sql_dir_path if _sql_dir_path.is_absolute() else _PKG_ROOT / _sql_dir_path
         )
 
         # Embedded logo base64 (extracted from template RDL on first access)
@@ -125,7 +134,41 @@ class PbiConfig:
     def datasource_name(self, model_name: str) -> str:
         """Return the canonical DataSource Name for *model_name*."""
         ws_slug = self.workspace_name.replace(" ", "").replace("-", "")
-        return f"{ws_slug}_{model_name}"
+        model_slug = model_name.replace(" ", "_")
+        return f"{ws_slug}_{model_slug}"
+
+    def snowflake_native_m_expr(
+        self,
+        database: str = "",
+        warehouse: str = "",
+    ) -> str:
+        """Return the Power Query M expression for the Snowflake native (ADBC 2.0) connector.
+
+        Approved for Lane 1 / Lane 2 workloads: semantic models and DirectQuery.
+        Do NOT use for paginated reports (RDL) — those use sfodbc_dsn (Lane 3).
+
+        Args:
+            database:  Optional Snowflake database name to include in the options record.
+            warehouse: Optional Snowflake warehouse name to include in the options record.
+
+        Example output (no optional args):
+            Snowflake.Databases(
+                "igtgloballottery-igtpxv1_ldi.privatelink.snowflakecomputing.com",
+                [Implementation = "2.0"]
+            )
+        """
+        opts: list[str] = [f'Implementation = "{self.sf_native_implementation}"']
+        if warehouse:
+            opts.append(f'Warehouse = "{warehouse}"')
+        if database:
+            opts.append(f'Database = "{database}"')
+        opts_str = ", ".join(opts)
+        return (
+            f'Snowflake.Databases(\n'
+            f'    "{self.sf_native_host}",\n'
+            f'    [{opts_str}]\n'
+            f')'
+        )
 
     # ------------------------------------------------------------------
     # Datasource inference  (driven by pbi.properties keyword tables)
@@ -190,7 +233,7 @@ class PbiConfig:
         if rdl_template_setting:
             candidate = Path(rdl_template_setting)
             if not candidate.is_absolute():
-                candidate = _REPO_ROOT / candidate
+                candidate = _PKG_ROOT / candidate
             if candidate.exists():
                 template_path = candidate
 

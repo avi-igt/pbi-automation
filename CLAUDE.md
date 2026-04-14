@@ -1,91 +1,204 @@
-# CLAUDE.md
+# CLAUDE.md — pbi-automation
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## What This Repo Does
 
-## Goal
+`pbi-automation` is a mono-repo containing two complementary Power BI generation tools:
 
-Automate development of Power BI reports and dashboards from a functional requirements document (FRD) using AI. The FRD is:
+| Tool | Entry point | Purpose |
+|---|---|---|
+| **report_generator** | `generate_reports.py` | FRD (.docx) → `.rdl` paginated reports + `.pbip` visual reports |
+| **model_generator** | `generate_models.py` | `semantic.properties` → `.SemanticModel` + `.Report` folder pairs |
+
+Both tools write to `output/` and deploy to `lpc-v1-app-ldi-pbi-mos`.
+
+---
+
+## Repo Structure
+
 ```
-MO - Performance Wizard Ad Hoc Reporting FRD v1.0.docx
+pbi-automation/
+├── generate_reports.py         ← report_generator entry point
+├── generate_models.py          ← model_generator entry point
+├── pbi.properties              ← report_generator config (workspace, DSNs, keywords)
+├── semantic.properties         ← model_generator config (Snowflake, dimensions, models)
+├── requirements.txt            ← combined dependencies
+│
+├── report_generator/           ← FRD → RDL/PBIP pipeline
+│   ├── config.py               ← reads pbi.properties
+│   ├── frd_parser.py           ← .docx → structured JSON
+│   ├── rdl_generator.py        ← JSON → .rdl (paginated reports)
+│   ├── pbip_generator.py       ← JSON → .pbip (visual reports)
+│   ├── spec_generator.py       ← JSON → .md spec docs
+│   ├── spec_parser.py          ← .md spec → structured dict (Path B)
+│   ├── spec_to_rdl.py          ← spec → .rdl (Path B)
+│   ├── spec_to_pbip.py         ← spec → .pbip (Path B)
+│   ├── sql/                    ← hand-authored SQL for ODBC reports
+│   └── templates/
+│       ├── MO_Report_Template.rdl  ← RDL base template (logo source)
+│       └── specs/              ← spec reference templates
+│
+├── model_generator/            ← semantic.properties → SemanticModel + Report
+│   ├── config.py               ← reads semantic.properties → typed dataclasses
+│   ├── snowflake_client.py     ← Snowflake connection + column introspection
+│   ├── tmdl_builder.py         ← TMDL content builders
+│   ├── report_builder.py       ← .Report content builders
+│   ├── model_generator.py      ← orchestrates one model end-to-end
+│   ├── DESIGN.md               ← full design document for model_generator
+│   ├── dimensions/             ← Strategy A YAML files
+│   │   ├── dates.yaml
+│   │   └── products.yaml
+│   └── templates/
+│       └── BaseThemes/
+│           └── CY24SU10.json   ← Power BI theme
+│
+└── output/
+    ├── json/                   ← frd_parsed.json (report_generator)
+    ├── specs/                  ← .md spec docs (report_generator)
+    ├── rdl/                    ← .rdl files (report_generator)
+    ├── pbip/                   ← .pbip folders (report_generator)
+    ├── from-spec/              ← Path B outputs (report_generator)
+    └── models/                 ← .SemanticModel + .Report pairs (model_generator)
 ```
 
-## Pipeline Architecture
+---
 
-Four Python scripts form the full pipeline:
+## Tool 1 — report_generator
 
-| Script | Role |
+### Run
+
+```bash
+python generate_reports.py                          # full pipeline: FRD → RDL + PBIP + specs
+python generate_reports.py --only parse             # step 1 only: FRD → JSON
+python generate_reports.py --only rdl               # step 2 only: JSON → .rdl
+python generate_reports.py --only pbip              # step 3 only: JSON → .pbip
+python generate_reports.py --only spec              # step 4 only: JSON → .md specs
+python generate_reports.py --report "Tax"           # filter by report name
+python generate_reports.py path/to/FRD.docx         # explicit FRD path
+```
+
+### Pipeline
+
+```
+FRD.docx → frd_parser → JSON → rdl_generator  → output/rdl/
+                              → pbip_generator → output/pbip/
+                              → spec_generator → output/specs/
+```
+
+Path B (spec-first review workflow):
+```
+(edit output/specs/*.md) → spec_to_rdl  → output/from-spec/rdl/
+                         → spec_to_pbip → output/from-spec/pbip/
+```
+
+### Configuration (`pbi.properties`)
+
+```ini
+workspace = Missouri - D1V1
+
+[datasource_keywords]
+snowflake = rdst, tmir, security, transaction
+db2 = claims, payments, annuities, debt
+
+[model_keywords]
+MO_Sales = sales, validations, cancels
+MO_DrawData = draw, game
+MO_CoreTables = retailer list, chain store   # last entry = default fallback
+
+[odbc]
+db2_dsn = MOS-Q1-BOADB
+sfodbc_dsn = MOS-PX-SFODBC
+
+[snowflake_native]
+host = igtgloballottery-igtpxv1_ldi.privatelink.snowflakecomputing.com
+implementation = 2.0
+```
+
+**Never hardcode** DSN names, workspace names, or dataset names — always read from
+`pbi.properties` via `report_generator/config.py`.
+
+### FRD Parsing Notes
+
+- The FRD uses **Azure DevOps SDT content controls** in Word — use `lxml` to parse
+  `w:sdt` elements, not plain paragraph text
+- Work item headers follow pattern: `MO-XXXXX,Draft,Functional/Business - ` — strip
+  this prefix
+- `Report Format` field determines output type: `paginated`/`RDL` → `.rdl`,
+  `Power BI`/`visual` → `.pbip`
+- SQL layering: if `report_generator/sql/<ReportName>.sql` exists, it overrides the auto-generated
+  dataset query
+
+---
+
+## Tool 2 — model_generator
+
+### Run
+
+```bash
+python generate_models.py                           # generate all configured models
+python generate_models.py --model financial_daily   # generate one model
+python generate_models.py --list                    # list all configured models
+python generate_models.py --env d1v1                # target environment
+
+# SSO credentials (PowerShell — SSO requires native Windows Python)
+$env:SNOWFLAKE_USER = "your.name@ourlotto.com"
+py generate_models.py
+
+# Username/password credentials (bash/WSL)
+export SNOWFLAKE_USER=your_username
+export SNOWFLAKE_PASSWORD=your_password
+```
+
+Output goes to `output/models/`. Each model produces a `.SemanticModel` + `.Report`
+folder pair.
+
+### Configuration (`semantic.properties`)
+
+Four section types:
+- `[snowflake]` / `[snowflake.<env>]` — connection details + per-env overrides
+- `[measure_suffixes]` — configurable suffix → TMDL type + format mapping
+- `[dimensions]` — conformed dimension registry (`alias = SCHEMA.TABLE, primary_key=..., strategy=A|B`)
+- `[model.*]` — one section per semantic model (`display_name`, `fact_table`, `dimensions`)
+
+Non-standard join keys: `dimensions = dates, products:GAME_PRODUCT_KEY`
+Role-playing dimensions: `inherit=<alias>` to reuse Strategy A YAML
+
+Full design doc: `model_generator/DESIGN.md`
+
+### Star Schema Rules
+
+| Column | Becomes |
 |---|---|
-| `frd_parser.py` | Parses the `.docx` FRD using `python-docx` + `lxml`, extracting SDT content controls (Azure DevOps work items embedded in Word). Outputs structured JSON per report. |
-| `rdl_generator.py` | Generates `.rdl` XML (Report Definition Language) for paginated reports from parsed JSON. |
-| `pbip_generator.py` | Generates `.pbip` folder structures for visual reports from parsed JSON. |
-| `generate_all.py` | Orchestrates the full pipeline: parse → RDL → PBIP. |
+| Exact match on a dimension join key | Hidden, `int64` (relationship key) |
+| Ends in `_COUNT` / `_AMOUNT` / `_QUANTITY` (configurable) | Hidden source column + `CALCULATE(SUM(...))` measure |
+| Other `ALL_UPPERCASE` | Hidden |
+| `Title Case` | Visible |
 
-Run the full pipeline:
-```bash
-python generate_all.py
-```
+---
 
-Run the parser alone:
-```bash
-python run_parser.py
-```
+## Output and Deployment
 
-**Reference implementation** from OpenClaw bot (take inspiration, improve upon):
-`/Users/aps/.openclaw/workspace/powerbi-frd-automation/`
+| Tool | Output folder | Deploy target |
+|---|---|---|
+| report_generator | `output/rdl/`, `output/pbip/` | `lpc-v1-app-ldi-pbi-mos` via Fabric CI/CD |
+| model_generator | `output/models/` | `lpc-v1-app-ldi-pbi-mos` via ALM Toolkit + PR |
 
-## Output Structure
+Commit convention for deployment PRs: `MOSC-#### description`
 
-```
-output/
-  json/frd_parsed.json     ← all ~95 reports as structured JSON
-  rdl/                     ← .rdl files organized by folder (per FRD folder field)
-  pbip/                    ← .pbip report folders organized by folder
-```
+---
 
-## Report Types & Templates
+## Related Repos
 
-### Paginated Reports (.rdl)
+| Repo | Relationship |
+|---|---|
+| `lpc-v1-app-ldi-pbi-mos` | Deployment target — all generated artifacts go here |
+| `pbi-cli` | Validates generated models via DAX queries against running PBI Desktop |
 
-Two data source patterns:
-1. **Semantic model** — uses `MO_*.pbip` datasets as data source. Template: `/Users/aps/git/lpc-v1-app-ldi-pbi/MO_Report_Template.PaginatedReport/MO_Report_Template.rdl`
-2. **Direct ODBC/DB2** — connects to BOADB (DB2 database). Example: `/Users/aps/git/lpc-v1-app-ldi-pbi/1042 Tax Report.PaginatedReport/`
-
-RDL namespace: `http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition`
-
-### Visual Reports (.pbip)
-
-Two data source patterns:
-1. **Semantic model** — binds to `MO_*.SemanticModel` via `definition.pbir` `byPath` reference. Example: `/Users/aps/git/lpc-v1-app-ldi-pbi/Activated Packs.Report/`
-2. **ODBC/Snowflake** — direct connection. Example: `/Users/aps/git/lpc-v1-app-ldi-pbi/TMIR Retailer.rdl`
-
-### `.pbip` folder structure
-```
-ReportName.Report/
-  definition.pbir          ← binds to semantic model via byPath: "../ModelName.SemanticModel"
-  definition/
-    report.json            ← visual layout, pages, visuals
-    pages/
-    version.json
-  StaticResources/
-```
-
-## Semantic Models
-
-Available MO datasets in `/Users/aps/git/lpc-v1-app-ldi-pbi/`:
-`MO_CoreTables`, `MO_DrawData`, `MO_IntervalSales`, `MO_Inventory`, `MO_Invoice`, `MO_LVMSales`, `MO_LVMTransactional`, `MO_Payments`, `MO_Promotions`, `MO_Sales`, `MO_WinnerData`
-
-Most reports should bind to one of these. The `definition.pbir` `byPath` field should reference the `.SemanticModel` folder relative to the report folder.
-
-## FRD Parsing Notes
-
-- The FRD uses **Azure DevOps SDT content controls** embedded in Word — use `lxml` to parse `w:sdt` elements, not plain paragraph text.
-- Work item headers follow pattern: `MO-XXXXX,Draft,Functional/Business - ` — strip this noise.
-- Each report has fields: Report Title, Legacy Report(s), Legacy Users, Summary, Report Format, Sort, New Folder, Folder, Notes.
-- `Report Format` determines paginated vs visual: look for "paginated"/"RDL" vs "Power BI"/"visual".
+---
 
 ## Environment
 
 - Platform: Microsoft Fabric + Power BI Premium capacity
-- Python dependencies: `python-docx`, `lxml` (for FRD parsing)
-- Output is for **manual review only** — do not auto-publish to Fabric/Power BI service
-- If a report's requirements are better suited to paginated format, recommend that over visual
+- `report_generator` deps: `python-docx`, `lxml`
+- `model_generator` deps: `snowflake-connector-python`, `PyYAML`
+- WSL2 + Windows Python (`py.exe`) for SSO Snowflake auth
+- Output is for manual review — do not auto-publish to Fabric/Power BI service

@@ -20,7 +20,7 @@ Usage:
     python src/spec_to_pbip.py output/specs/ --report "Cash Pop"
 
 Library usage:
-    from src.spec_to_pbip import generate_pbip_from_spec
+    from report_generator.spec_to_pbip import generate_pbip_from_spec
     out_path = generate_pbip_from_spec("output/specs/cash-pop-performance.md", "output/from-spec/pbip")
 """
 
@@ -33,8 +33,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-from src.spec_parser import parse_spec
-from src.pbip_generator import generate_pbip
+from report_generator.spec_parser import parse_spec
+from report_generator.pbip_generator import generate_pbip
 
 
 def generate_pbip_from_spec(md_path: str, output_dir: str) -> str:

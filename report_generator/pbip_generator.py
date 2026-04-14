@@ -33,7 +33,7 @@ from pathlib import Path
 from datetime import datetime
 
 try:
-    from src.config import cfg as _cfg
+    from report_generator.config import cfg as _cfg
 except ImportError:
     try:
         from config import cfg as _cfg

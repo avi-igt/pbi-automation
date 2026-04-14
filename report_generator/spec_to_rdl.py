@@ -19,7 +19,7 @@ Usage:
     python src/spec_to_rdl.py output/specs/ --report "1042 Tax"
 
 Library usage:
-    from src.spec_to_rdl import generate_rdl_from_spec
+    from report_generator.spec_to_rdl import generate_rdl_from_spec
     out_path = generate_rdl_from_spec("output/specs/1042-tax.md", "output/from-spec/rdl")
 """
 
@@ -33,8 +33,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-from src.spec_parser import parse_spec
-from src.rdl_generator import generate_rdl
+from report_generator.spec_parser import parse_spec
+from report_generator.rdl_generator import generate_rdl
 
 
 def generate_rdl_from_spec(md_path: str, output_dir: str) -> str:

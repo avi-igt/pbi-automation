@@ -1,2 +1,7 @@
+# report_generator dependencies
 python-docx>=1.1.0
 lxml>=5.0.0
+
+# model_generator dependencies
+snowflake-connector-python>=3.0.0
+PyYAML>=6.0

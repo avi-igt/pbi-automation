@@ -1,0 +1,24 @@
+# Strategy A — visible column list for DIMCORE.DATES
+#
+# Only columns listed here appear in the Power BI field pane.
+# Right-hand value = business display name shown to report authors.
+# Omit any column to hide it.
+#
+# Run with strategy=B first to discover all available column names, then
+# move back to strategy=A and populate this file with your chosen subset.
+
+visible_columns:
+  CALENDAR_DATE:            Date
+  CALENDAR_YEAR:            Year
+  CALENDAR_MONTH_NUMBER:    Month Number
+  CALENDAR_MONTH_NAME:      Month Name
+  CALENDAR_QUARTER_NUMBER:  Quarter Number
+  CALENDAR_QUARTER_NAME:    Quarter
+  CALENDAR_WEEK_NUMBER:     Week Number
+  DAY_OF_WEEK_NUMBER:       Day of Week Number
+  DAY_OF_WEEK_NAME:         Day of Week
+  FISCAL_YEAR:              Fiscal Year
+  FISCAL_QUARTER:           Fiscal Quarter
+  FISCAL_WEEK_NUMBER:       Fiscal Week
+  IS_WEEKDAY:               Is Weekday
+  IS_HOLIDAY:               Is Holiday

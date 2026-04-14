@@ -76,7 +76,7 @@
   <!-- Tagline -->
   <text x="56" y="165" font-family="'Segoe UI', Arial, sans-serif"
         font-size="13" font-weight="400" fill="#444444" letter-spacing="1">
-    FRD  →  Power BI.  Automated.
+    report-generator  ·  model-generator
   </text>
 
   <!-- Orange underline accent -->
@@ -86,52 +86,52 @@
   <rect x="56" y="190" width="72" height="22" rx="11" fill="#1e1e1e" stroke="#333333" stroke-width="1"/>
   <text x="92" y="205" font-family="monospace" font-size="10" fill="#888888" text-anchor="middle">Python 3.9+</text>
 
-  <rect x="136" y="190" width="58" height="22" rx="11" fill="#1e1e1e" stroke="#333333" stroke-width="1"/>
-  <text x="165" y="205" font-family="monospace" font-size="10" fill="#888888" text-anchor="middle">MIT License</text>
+  <rect x="136" y="190" width="62" height="22" rx="11" fill="#1e1e1e" stroke="#333333" stroke-width="1"/>
+  <text x="167" y="205" font-family="monospace" font-size="10" fill="#888888" text-anchor="middle">Snowflake</text>
 
   <rect x="202" y="190" width="82" height="22" rx="11" fill="#1e1e1e" stroke="#FF6600" stroke-width="1" opacity="0.9"/>
   <text x="243" y="205" font-family="monospace" font-size="10" fill="#FF6600" text-anchor="middle">Power BI / Fabric</text>
 
-  <!-- ── Decorative pipeline (right side) ── -->
-  <!-- Glow halo -->
-  <circle cx="730" cy="110" r="75" fill="#FF6600" opacity="0.03"/>
+  <!-- ── Decorative pipeline (right side) — two tools ── -->
+  <circle cx="730" cy="100" r="80" fill="#FF6600" opacity="0.03"/>
 
-  <!-- Node: .docx -->
-  <rect x="626" y="46" width="54" height="30" rx="6" fill="#1e1e1e" stroke="#FF6600" stroke-width="1.5" opacity="0.9"/>
-  <text x="653" y="65" font-family="monospace" font-size="11" fill="#FF6600" text-anchor="middle">.docx</text>
-  <!-- Arrow -->
-  <line x1="680" y1="61" x2="696" y2="61" stroke="#FF6600" stroke-width="1.5" opacity="0.6"/>
-  <polygon points="696,57 704,61 696,65" fill="#FF6600" opacity="0.6"/>
+  <!-- ── Lane 1: report-generator ── -->
+  <text x="620" y="57" font-family="'Segoe UI', sans-serif" font-size="8" fill="#555" letter-spacing="2">REPORT GENERATOR</text>
+  <!-- .docx -->
+  <rect x="620" y="62" width="46" height="26" rx="5" fill="#1e1e1e" stroke="#FF6600" stroke-width="1.5" opacity="0.9"/>
+  <text x="643" y="78" font-family="monospace" font-size="10" fill="#FF6600" text-anchor="middle">.docx</text>
+  <line x1="666" y1="75" x2="678" y2="75" stroke="#FF6600" stroke-width="1.5" opacity="0.7"/>
+  <polygon points="678,71 686,75 678,79" fill="#FF6600" opacity="0.7"/>
+  <!-- frd_parser -->
+  <rect x="688" y="62" width="74" height="26" rx="5" fill="#1e1e1e" stroke="#FF8C00" stroke-width="1.5" opacity="0.9"/>
+  <text x="725" y="78" font-family="monospace" font-size="9" fill="#FF8C00" text-anchor="middle">frd_parser</text>
+  <line x1="762" y1="75" x2="774" y2="75" stroke="#FF8C00" stroke-width="1.5" opacity="0.7"/>
+  <polygon points="774,71 782,75 774,79" fill="#FF8C00" opacity="0.7"/>
+  <!-- .rdl / .pbip -->
+  <rect x="784" y="62" width="56" height="26" rx="5" fill="#1e1e1e" stroke="#FF6600" stroke-width="1.5" opacity="0.9"/>
+  <text x="812" y="72" font-family="monospace" font-size="9" fill="#FF6600" text-anchor="middle">.rdl</text>
+  <text x="812" y="84" font-family="monospace" font-size="9" fill="#FF8C00" text-anchor="middle">.pbip</text>
 
-  <!-- Node: parser -->
-  <rect x="706" y="46" width="56" height="30" rx="6" fill="#1e1e1e" stroke="#FF8C00" stroke-width="1.5" opacity="0.9"/>
-  <text x="734" y="65" font-family="monospace" font-size="10" fill="#FF8C00" text-anchor="middle">parser</text>
-  <!-- Down arrow -->
-  <line x1="734" y1="76" x2="734" y2="90" stroke="#FF8C00" stroke-width="1.5" opacity="0.6"/>
-  <polygon points="730,90 734,98 738,90" fill="#FF8C00" opacity="0.6"/>
+  <!-- ── Lane divider ── -->
+  <line x1="620" y1="98" x2="848" y2="98" stroke="#2a2a2a" stroke-width="1"/>
 
-  <!-- Node: JSON -->
-  <rect x="706" y="100" width="56" height="30" rx="6" fill="#1e1e1e" stroke="#FFFFFF" stroke-width="1.5" opacity="0.7"/>
-  <text x="734" y="119" font-family="monospace" font-size="11" fill="#FFFFFF" text-anchor="middle">JSON</text>
-  <!-- Fork left → .rdl -->
-  <line x1="706" y1="115" x2="692" y2="128" stroke="#FF6600" stroke-width="1.2" opacity="0.7"/>
-  <polygon points="688,125 684,133 694,131" fill="#FF6600" opacity="0.7"/>
-  <!-- Fork right → .pbip -->
-  <line x1="762" y1="115" x2="776" y2="128" stroke="#FF8C00" stroke-width="1.2" opacity="0.7"/>
-  <polygon points="776,125 780,133 786,131" fill="#FF8C00" opacity="0.7"/>
-  <!-- Fork down → .md -->
-  <line x1="734" y1="130" x2="734" y2="143" stroke="#666666" stroke-width="1.2" stroke-dasharray="3,2" opacity="0.7"/>
-  <polygon points="730,143 734,151 738,143" fill="#666666" opacity="0.6"/>
-
-  <!-- Node: .rdl -->
-  <rect x="644" y="136" width="48" height="28" rx="6" fill="#1e1e1e" stroke="#FF6600" stroke-width="1.5" opacity="0.9"/>
-  <text x="668" y="154" font-family="monospace" font-size="11" fill="#FF6600" text-anchor="middle" font-weight="bold">.rdl</text>
-
-  <!-- Node: .pbip -->
-  <rect x="770" y="136" width="50" height="28" rx="6" fill="#1e1e1e" stroke="#FF8C00" stroke-width="1.5" opacity="0.9"/>
-  <text x="795" y="154" font-family="monospace" font-size="11" fill="#FF8C00" text-anchor="middle" font-weight="bold">.pbip</text>
-
-  <!-- Node: .md (review docs, dashed) -->
-  <rect x="710" y="153" width="48" height="26" rx="6" fill="#1e1e1e" stroke="#666666" stroke-width="1.2" stroke-dasharray="4,3" opacity="0.85"/>
-  <text x="734" y="170" font-family="monospace" font-size="11" fill="#666666" text-anchor="middle" font-weight="bold">.md</text>
+  <!-- ── Lane 2: model-generator ── -->
+  <text x="620" y="113" font-family="'Segoe UI', sans-serif" font-size="8" fill="#555" letter-spacing="2">MODEL GENERATOR</text>
+  <!-- .properties -->
+  <rect x="620" y="118" width="68" height="26" rx="5" fill="#1e1e1e" stroke="#888888" stroke-width="1.2" opacity="0.85"/>
+  <text x="654" y="134" font-family="monospace" font-size="9" fill="#888888" text-anchor="middle">.properties</text>
+  <!-- Snowflake badge above generate.py -->
+  <rect x="698" y="105" width="60" height="16" rx="4" fill="#1e1e1e" stroke="#333" stroke-width="1" stroke-dasharray="2,2" opacity="0.9"/>
+  <text x="728" y="117" font-family="monospace" font-size="7.5" fill="#555" text-anchor="middle">Snowflake ↓</text>
+  <line x1="688" y1="131" x2="698" y2="131" stroke="#888" stroke-width="1.2" opacity="0.6"/>
+  <polygon points="698,127 706,131 698,135" fill="#888" opacity="0.6"/>
+  <!-- generate.py -->
+  <rect x="708" y="118" width="72" height="26" rx="5" fill="#1e1e1e" stroke="#CCCCCC" stroke-width="1.5" opacity="0.7"/>
+  <text x="744" y="134" font-family="monospace" font-size="9" fill="#CCCCCC" text-anchor="middle">generate.py</text>
+  <line x1="780" y1="131" x2="792" y2="131" stroke="#CCCCCC" stroke-width="1.2" opacity="0.6"/>
+  <polygon points="792,127 800,131 792,135" fill="#CCCCCC" opacity="0.6"/>
+  <!-- .SemanticModel -->
+  <rect x="802" y="118" width="46" height="26" rx="5" fill="#1e1e1e" stroke="#FF6600" stroke-width="1.5" opacity="0.9"/>
+  <text x="825" y="128" font-family="monospace" font-size="7.5" fill="#FF6600" text-anchor="middle">.Semantic</text>
+  <text x="825" y="139" font-family="monospace" font-size="7.5" fill="#FF8C00" text-anchor="middle">Model/</text>
 </svg>

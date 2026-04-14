@@ -1,0 +1,18 @@
+# Strategy A — visible column list for DIMCORE.PRODUCTS
+#
+# Only columns listed here appear in the Power BI field pane.
+# Right-hand value = business display name shown to report authors.
+# Omit any column to hide it.
+#
+# Run with strategy=B first to discover all available column names, then
+# move back to strategy=A and populate this file with your chosen subset.
+
+visible_columns:
+  PRODUCT_NUMBER:           Product Number
+  PRODUCT_NAME:             Product Name
+  PRODUCT_TYPE_CODE:        Product Type Code
+  PRODUCT_TYPE_DESC:        Product Type
+  GAME_NUMBER:              Game Number
+  GAME_NAME:                Game Name
+  TICKET_PRICE:             Ticket Price
+  IS_ACTIVE:                Is Active
