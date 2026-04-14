@@ -1,24 +1,86 @@
-# Strategy A — visible column list for DIMCORE.DATES
-#
-# Only columns listed here appear in the Power BI field pane.
-# Right-hand value = business display name shown to report authors.
-# Omit any column to hide it.
-#
-# Run with strategy=B first to discover all available column names, then
-# move back to strategy=A and populate this file with your chosen subset.
+# dates.yaml — visible columns for DIMCORE.DATES (Strategy A)
+# DATE_KEY is excluded (primary key, always hidden automatically)
+# Excluded: DIM surrogate numbers, internal begin/end/current flags,
+#           CALENDAR_DAY_YYYYMMDD (redundant), LOAD_TIMESTAMP, SITE_KEY
 
 visible_columns:
-  CALENDAR_DATE:            Date
-  CALENDAR_YEAR:            Year
-  CALENDAR_MONTH_NUMBER:    Month Number
-  CALENDAR_MONTH_NAME:      Month Name
-  CALENDAR_QUARTER_NUMBER:  Quarter Number
-  CALENDAR_QUARTER_NAME:    Quarter
-  CALENDAR_WEEK_NUMBER:     Week Number
-  DAY_OF_WEEK_NUMBER:       Day of Week Number
-  DAY_OF_WEEK_NAME:         Day of Week
-  FISCAL_YEAR:              Fiscal Year
-  FISCAL_QUARTER:           Fiscal Quarter
-  FISCAL_WEEK_NUMBER:       Fiscal Week
-  IS_WEEKDAY:               Is Weekday
-  IS_HOLIDAY:               Is Holiday
+
+  # ── Day ───────────────────────────────────────────────────────────────────
+  CDC:                           Continuous Day Counter
+  CALENDAR_DAY_DATE:             Date
+  CALENDAR_DAY_STRING:           Date String
+  CALENDAR_DAY_OF_WEEK:          Day of Week
+  WEEKDAY_FLAG:                  Is Weekday
+  HOLIDAY_FLAG:                  Is Holiday
+  PAST_FLAG:                     Is Past
+
+  # ── Calendar Week ─────────────────────────────────────────────────────────
+  CALENDAR_WEEK_STRING:          Calendar Week
+  CALENDAR_WEEK_YEAR_STRING:     Calendar Week Year
+  CALENDAR_WEEK_START_DATE:      Calendar Week Start Date
+  CALENDAR_WEEK_END_DATE:        Calendar Week End Date
+  CALENDAR_WEEK_DAY_NUMBER:      Calendar Week Day Number
+  CALENDAR_YEAR_WEEK_NUMBER:     Calendar Year Week Number
+  CALENDAR_MONTH_WEEK_NUMBER:    Calendar Month Week Number
+
+  # ── Calendar Month ────────────────────────────────────────────────────────
+  CALENDAR_MONTH_STRING:         Month
+  CALENDAR_MONTH_START_DATE:     Month Start Date
+  CALENDAR_MONTH_END_DATE:       Month End Date
+  CALENDAR_MONTH_DAY_NUMBER:     Calendar Month Day Number
+  CALENDAR_YEAR_MONTH_NUMBER:    Calendar Year Month Number
+
+  # ── Calendar Quarter ──────────────────────────────────────────────────────
+  CALENDAR_QTR_STRING:           Calendar Quarter
+  CALENDAR_QTR_START_DATE:       Calendar Quarter Start Date
+  CALENDAR_QTR_END_DATE:         Calendar Quarter End Date
+  CALENDAR_YEAR_QTR_NUMBER:      Calendar Year Quarter Number
+
+  # ── Calendar Year ─────────────────────────────────────────────────────────
+  CALENDAR_YEAR_STRING:          Calendar Year
+  CALENDAR_YEAR_START_DATE:      Calendar Year Start Date
+  CALENDAR_YEAR_END_DATE:        Calendar Year End Date
+  CALENDAR_YEAR_DAY_NUMBER:      Calendar Year Day Number
+
+  # ── Fiscal Week ───────────────────────────────────────────────────────────
+  FISCAL_WEEK_STRING:            Fiscal Week
+  FISCAL_WEEK_YEAR_STRING:       Fiscal Week Year
+  FISCAL_WEEK_START_DATE:        Fiscal Week Start Date
+  FISCAL_WEEK_END_DATE:          Fiscal Week End Date
+  FISCAL_WEEK_DAY_NUMBER:        Fiscal Week Day Number
+  FISCAL_YEAR_WEEK_NUMBER:       Fiscal Year Week Number
+  FISCAL_MONTH_WEEK_NUMBER:      Fiscal Month Week Number
+  FISCAL_WEEK_STRING_START:      Fiscal Week Start
+  FISCAL_WEEK_YEAR_STRING_START: Fiscal Week Year Start
+  FISCAL_WEEK_STRING_MAX:        Fiscal Week Max
+  FISCAL_WEEK_YEAR_STRING_MAX:   Fiscal Week Year Max
+
+  # ── Fiscal Month ──────────────────────────────────────────────────────────
+  FISCAL_MONTH_STRING:           Fiscal Month
+  FISCAL_MONTH_START_DATE:       Fiscal Month Start Date
+  FISCAL_MONTH_END_DATE:         Fiscal Month End Date
+  FISCAL_MONTH_NUMBER:           Fiscal Month Number
+  FISCAL_MONTH_DAY_NUMBER:       Fiscal Month Day Number
+
+  # ── Fiscal Quarter ────────────────────────────────────────────────────────
+  FISCAL_QTR_NUMBER:             Fiscal Quarter Number
+  FISCAL_QTR_STRING:             Fiscal Quarter
+  FISCAL_QTR_START_DATE:         Fiscal Quarter Start Date
+  FISCAL_QTR_END_DATE:           Fiscal Quarter End Date
+
+  # ── Fiscal Year ───────────────────────────────────────────────────────────
+  FISCAL_DAY_STRING:             Fiscal Day
+  FISCAL_YEAR_STRING:            Fiscal Year
+  FISCAL_YEAR_START_DATE:        Fiscal Year Start Date
+  FISCAL_YEAR_END_DATE:          Fiscal Year End Date
+  FISCAL_YEAR_DAY_NUMBER:        Fiscal Year Day Number
+
+  # ── Invoice Period ────────────────────────────────────────────────────────
+  INVOICE_NUMBER:                Invoice Number
+  INVOICE_START_DATE:            Invoice Start Date
+  INVOICE_END_DATE:              Invoice End Date
+
+  # ── Work Days ─────────────────────────────────────────────────────────────
+  CALENDAR_WORK_DAY_NUMBER:      Calendar Work Day Number
+  FISCAL_WORK_DAY_NUMBER:        Fiscal Work Day Number
+  ALL_WORK_DAY_NUMBER:           All Work Day Number

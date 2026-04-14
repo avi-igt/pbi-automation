@@ -1,0 +1,19 @@
+# draw_information.yaml — visible columns for DRAW.DRAW_INFORMATION (Strategy A)
+# DRAW_INFO_KEY is excluded (primary key, always hidden automatically)
+# Excluded: DATE_KEY, PRODUCT_KEY (FK join keys), LOAD_TIMESTAMP, SITE_KEY
+
+visible_columns:
+  PRODUCT_NUMBER:           Product Number
+  DRAW_NUMBER:              Draw Number
+  DRAW_DESC:                Draw Description
+  DRAW_TIMESTAMP:           Draw Date
+  CURRENT_DRAW_FLAG:        Is Current Draw
+  DAY_DRAW_FLAG:            Is Day Draw
+  NUMBER_DIVISIONS:         Number of Divisions
+  NUMBER_WINSETS:           Number of Winsets
+  JACKPOT_ROLLOVER_COUNT:   Jackpot Rollover Count
+  JACKPOT_AMOUNT:           Jackpot Amount
+  JACKPOT_FUNDED_AMOUNT:    Jackpot Funded Amount
+  CASH_AMOUNT:              Cash Amount
+  HIGHEST_LIABILITY_NUMBER: Highest Liability Number
+  RAFFLE_GRAND_DRAW_NUMBER: Raffle Grand Draw Number

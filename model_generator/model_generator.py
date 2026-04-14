@@ -16,8 +16,10 @@ from pathlib import Path
 from model_generator.config import SemanticConfig, ModelDef
 from model_generator.snowflake_client import SnowflakeClient
 from model_generator.tmdl_builder import (
+    DimMergeSpec,
     build_database_tmdl,
     build_definition_pbism,
+    build_dim_merge_spec,
     build_dimension_tmdl,
     build_expressions_tmdl,
     build_fact_table_tmdl,
@@ -31,6 +33,7 @@ from model_generator.report_builder import (
     build_local_settings_json,
     build_page_json,
     build_pages_json,
+    build_pbip_file,
     build_placeholder_visual,
     build_report_json,
     build_report_platform_json,
@@ -72,35 +75,30 @@ class ModelGenerator:
         fact_col_names = {c.name for c in fact_columns}
         print(f"    {len(fact_columns)} columns found ({fact_obj_kind})", file=sys.stderr)
 
-        # Collect the fact column names used as join keys.
-        # Defaults to the dimension's primary_key; overridden by dim_fact_keys when
-        # the fact table uses a different column name (e.g. GAME_PRODUCT_KEY → PRODUCT_KEY).
-        dim_primary_keys: set[str] = {
-            model_def.dim_fact_keys.get(alias, self._cfg.dimensions[alias].primary_key)
-            for alias in model_def.dimensions
-        }
-
         # ── 2. Fetch dimension metadata ─────────────────────────────────────
         dim_columns: dict[str, list] = {}
         for alias in model_def.dimensions:
             dim_def = self._cfg.dimensions[alias]
-            if dim_def.strategy == "B":
-                print(f"    Fetching columns (Strategy B): {dim_def.source}",
-                      file=sys.stderr)
-                dim_columns[alias] = self._sf.get_columns(dim_def.schema, dim_def.table)
-                print(f"    {len(dim_columns[alias])} columns found", file=sys.stderr)
-            else:
-                # Strategy A — column list comes from YAML; still need types for
-                # hidden columns, so fetch from Snowflake too
-                print(f"    Fetching columns (Strategy A): {dim_def.source}",
-                      file=sys.stderr)
-                dim_columns[alias] = self._sf.get_columns(dim_def.schema, dim_def.table)
-                print(f"    {len(dim_columns[alias])} columns found", file=sys.stderr)
+            strategy_label = f"Strategy {dim_def.strategy}"
+            print(f"    Fetching columns ({strategy_label}): {dim_def.source}",
+                  file=sys.stderr)
+            dim_columns[alias] = self._sf.get_columns(dim_def.schema, dim_def.table)
+            print(f"    {len(dim_columns[alias])} columns found", file=sys.stderr)
+
+        # Build dim merge specs — describe how each dimension joins + which cols to expand
+        dim_specs: list[DimMergeSpec] = [
+            build_dim_merge_spec(
+                self._cfg.dimensions[alias],
+                dim_columns[alias],
+                model_def.dim_fact_keys.get(alias, self._cfg.dimensions[alias].primary_key),
+            )
+            for alias in model_def.dimensions
+        ]
 
         # ── 3. Build TMDL content strings ───────────────────────────────────
         fact_tmdl = build_fact_table_tmdl(
-            model_def, fact_columns, dim_primary_keys, fact_obj_kind,
-            self._cfg.measure_suffixes,
+            model_def, fact_columns, fact_obj_kind,
+            self._cfg.measure_suffixes, dim_specs, model_def.filter_column,
         )
         dim_tmdls = {
             alias: build_dimension_tmdl(
@@ -111,7 +109,10 @@ class ModelGenerator:
         relationships_tmdl = build_relationships_tmdl(
             model_def, fact_col_names, self._cfg.dimensions
         )
-        expressions_tmdl = build_expressions_tmdl(self._cfg.snowflake)
+        expressions_tmdl = build_expressions_tmdl(
+            self._cfg.snowflake,
+            has_date_filter=bool(model_def.filter_column),
+        )
         model_tmdl = build_model_tmdl(model_def, self._cfg.dimensions)
         database_tmdl = build_database_tmdl()
         platform_json = build_platform_json(model_def)
@@ -123,7 +124,8 @@ class ModelGenerator:
         _write(model_dir / "definition" / "database.tmdl", database_tmdl)
         _write(model_dir / "definition" / "model.tmdl", model_tmdl)
         _write(model_dir / "definition" / "expressions.tmdl", expressions_tmdl)
-        _write(model_dir / "definition" / "relationships.tmdl", relationships_tmdl)
+        if relationships_tmdl:
+            _write(model_dir / "definition" / "relationships.tmdl", relationships_tmdl)
 
         # Fact table file — name matches display_name minus postfix
         table_name = model_def.display_name.rsplit(" ", 1)[0]
@@ -134,8 +136,7 @@ class ModelGenerator:
             dim_table_name = to_title(alias)
             _write(tables_dir / f"{dim_table_name}.tmdl", tmdl_content)
 
-        _report_summary(model_def, fact_columns, dim_primary_keys, model_dir,
-                        self._cfg.measure_suffixes)
+        _report_summary(model_def, fact_columns, model_dir, self._cfg.measure_suffixes)
 
         # ── 5. Generate companion .Report placeholder ───────────────────────
         self._generate_report(model_def, output_dir)
@@ -187,7 +188,12 @@ class ModelGenerator:
                 file=sys.stderr,
             )
 
+        # ── .pbip project file (sits alongside .Report and .SemanticModel) ──
+        pbip_path = output_dir / f"{model_def.display_name}.pbip"
+        _write(pbip_path, build_pbip_file(model_def))
+
         print(f"    Report:     {report_dir.name}", file=sys.stderr)
+        print(f"    PBIP:       {pbip_path.name}", file=sys.stderr)
         return report_dir
 
 
@@ -202,7 +208,6 @@ def _write(path: Path, content: str) -> None:
 def _report_summary(
     model_def: ModelDef,
     fact_columns: list,
-    dim_primary_keys: set[str],
     model_dir: Path,
     measure_suffixes: list,
 ) -> None:

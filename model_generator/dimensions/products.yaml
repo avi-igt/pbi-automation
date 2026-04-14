@@ -1,18 +1,106 @@
-# Strategy A — visible column list for DIMCORE.PRODUCTS
-#
-# Only columns listed here appear in the Power BI field pane.
-# Right-hand value = business display name shown to report authors.
-# Omit any column to hide it.
-#
-# Run with strategy=B first to discover all available column names, then
-# move back to strategy=A and populate this file with your chosen subset.
+# products.yaml — visible columns for DIMCORE.PRODUCTS (Strategy A)
+# PRODUCT_KEY is excluded (primary key, always hidden automatically)
+# Excluded: operational indicator fields (LOAD_OMITS_IND, AUTO_REORDER_IND, etc.),
+#           LOAD_TIMESTAMP, SITE_KEY, DETAIL_PURGE_TIMESTAMP, PURGE_TIMESTAMP,
+#           PRODUCT_BITMAP, BARCODE_ID, START_TICKET_NUMBER
 
 visible_columns:
-  PRODUCT_NUMBER:           Product Number
-  PRODUCT_NAME:             Product Name
-  PRODUCT_TYPE_CODE:        Product Type Code
-  PRODUCT_TYPE_DESC:        Product Type
-  GAME_NUMBER:              Game Number
-  GAME_NAME:                Game Name
-  TICKET_PRICE:             Ticket Price
-  IS_ACTIVE:                Is Active
+
+  # ── Product Identification ────────────────────────────────────────────────
+  PRODUCT_NUMBER:                Product Number
+  MAIN_PRODUCT_NUMBER:           Main Product Number
+  ROLLUP_PRODUCT_NUMBER:         Rollup Product Number
+  PRODUCT_SHORT_DESC:            Product Short Description
+  PRODUCT_DESC:                  Product Description
+  PRODUCT_LIBRARY:               Product Library
+
+  # ── Classification ────────────────────────────────────────────────────────
+  PRODUCT_TYPE_CODE:             Product Type Code
+  PRODUCT_TYPE_DESC:             Product Type
+  PRODUCT_CATEGORY_NAME:         Product Category
+  PRODUCT_CATEGORY_TYPE:         Product Category Type
+  PLAY_STYLE_CODE:               Play Style Code
+  PLAY_STYLE_DESC:               Play Style
+  SIZE_CODE:                     Size Code
+  SIZE_DESC:                     Size
+  THEME_CODE:                    Theme Code
+  THEME_DESC:                    Theme
+  COLOR_CODE:                    Color Code
+  COLOR_DESC:                    Color
+  PLAY_FEATURE_CODE:             Play Feature Code
+  PLAY_FEATURE_DESC:             Play Feature
+  TRACKING_TYPE_CODE:            Tracking Type Code
+  SETTLE_CLASS_CODE:             Settle Class Code
+  SETTLE_CLASS_DESC:             Settle Class
+  IPS_PRODUCT_TYPES:             IPS Product Types
+
+  # ── Financial / Odds ──────────────────────────────────────────────────────
+  TICKET_VALUE:                  Ticket Value
+  PRIZE_PAYOUT_PERCENTAGE:       Prize Payout %
+  PAYOUT_PERCENTAGE:             Payout %
+  WORK_PAPER_PAYOUT_PERCENTAGE:  Work Paper Payout %
+  OVERALL_ODDS_VALUE:            Overall Odds
+  GAME_ODDS:                     Game Odds
+  VALIDATION_PERCENTAGE:         Validation %
+  VALIDATION_COMMISSION_CLASS:   Validation Commission Class
+  VALIDATION_STATUS:             Validation Status Code
+  VALIDATION_STATUS_DESC:        Validation Status
+  HIGHEST_PRIZE_LEVEL:           Highest Prize Level
+  PAYMENT_AMOUNT:                Payment Amount
+  PRIZE_FREQUENCY:               Prize Frequency
+  NUMBER_OF_PAYMENTS:            Number of Payments
+  PRINT_COST:                    Print Cost
+  WIN_TKT_RATIO_ALL:             Win Ticket Ratio All
+  WIN_TKT_RATIO_ABOVE_PRICE:     Win Ticket Ratio Above Price
+
+  # ── Physical Attributes ───────────────────────────────────────────────────
+  PACK_SIZE:                     Pack Size
+  CARTON_SIZE:                   Carton Size
+  TICKET_WEIGHT:                 Ticket Weight
+  TICKET_LENGTH:                 Ticket Length
+  AVAILABLE_PACKS:               Available Packs
+  BASE_BOOK:                     Base Book
+
+  # ── Game / Core ───────────────────────────────────────────────────────────
+  CORE_GAME_ID:                  Core Game ID
+  CORE_GAME_DESC:                Core Game
+  CORE_GROUP_NUMBER:             Core Group Number
+  CORE_GROUP_DESC:               Core Group
+  GROUP_ID:                      Group ID
+  STING_GAME_NUMBER:             Sting Game Number
+  LINKED_PRODUCT_NUMBER:         Linked Product Number
+  JACKPOT_GRID_NUMBER:           Jackpot Grid Number
+
+  # ── Statistics ────────────────────────────────────────────────────────────
+  POOL_SIZE:                     Pool Size
+  AVG_WINNERS:                   Average Winners
+  MAX_LOW_WINNERS:               Max Low Winners
+  FREE_TICKET_WINNERS_PERCENTAGE: Free Ticket Winners %
+  NEW_GAME_DAYS:                 New Game Days
+  NEW_GAME_FACTOR:               New Game Factor
+
+  # ── LVM ───────────────────────────────────────────────────────────────────
+  LVM_MARKETING_DAYS:            LVM Marketing Days
+  LVM_MARKETING_VALUE:           LVM Marketing Value
+  LVM_LOW_LIMIT:                 LVM Low Limit
+
+  # ── Lifecycle Timestamps ──────────────────────────────────────────────────
+  START_TIMESTAMP:               Start Date
+  END_TIMESTAMP:                 End Date
+  LAUNCH_TIMESTAMP:              Launch Date
+  INITIAL_LAUNCH_TIMESTAMP:      Initial Launch Date
+  START_DIST_TIMESTAMP:          Distribution Start Date
+  END_DIST_TIMESTAMP:            Distribution End Date
+  START_ACTIVATION_TIMESTAMP:    Activation Start Date
+  END_ACTIVATION_TIMESTAMP:      Activation End Date
+  START_RETURN_TIMESTAMP:        Return Start Date
+  END_RETURN_TIMESTAMP:          Return End Date
+
+  # ── Indicators ────────────────────────────────────────────────────────────
+  CORE_GAME_IND:                 Is Core Game
+  KEY_GAME_IND:                  Is Key Game
+  HYBRID_IND:                    Is Hybrid
+  GIANTIX_FLAG:                  Is Giantix
+  JACKPOT_GRID_IND:              Is Jackpot Grid
+  COUPON_FLAG:                   Is Coupon
+  SERIALIZED_IND:                Is Serialized

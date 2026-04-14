@@ -1,0 +1,48 @@
+# terminals.yaml — visible columns for DIMCORE.TERMINALS (Strategy A)
+# TERMINAL_KEY is excluded (primary key, always hidden automatically)
+# Excluded: LOCATION_KEY (FK), GENERAL_PRIV_BITMAP, PRODUCT_BITMAP, SIGN_BITMAP
+#           (internal bitmask fields), CREATED_TIMESTAMP, MODIFIED_TIMESTAMP,
+#           LOAD_TIMESTAMP, SITE_KEY
+
+visible_columns:
+
+  # ── Terminal Identification ───────────────────────────────────────────────
+  RETAILER_NUMBER:               Retailer Number
+  TERMINAL_NUMBER:               Terminal Number
+  ES_CONNECT_TERMINAL_NUMBER:    ES Connect Terminal Number
+
+  # ── Status ────────────────────────────────────────────────────────────────
+  TERMINAL_STATUS_CODE:          Terminal Status Code
+  TERMINAL_STATUS_DESC:          Terminal Status
+  STATUS_REASON_CODE:            Status Reason Code
+  STATUS_REASON_DESC:            Status Reason
+  STATUS_MODIFIED_TIMESTAMP:     Status Modified Date
+  STATUS_CHANGE_COMMENT:         Status Change Comment
+  ACTIVATION_DATE:               Activation Date
+  DISABLED_DATE:                 Disabled Date
+  INSTALL_COMPLETION_TIMESTAMP:  Install Completion Date
+
+  # ── Terminal Type / Classification ────────────────────────────────────────
+  TERMINAL_TYPE_CODE:            Terminal Type Code
+  TERMINAL_TYPE_DESC:            Terminal Type
+  MEDIA_STATUS_TYPE_CODE:        Media Status Type Code
+  MEDIA_STATUS_TYPE_DESC:        Media Status Type
+  SERVICEABLE_FLAG:              Is Serviceable
+  ITVM_FLAG:                     Is ITVM
+  NUMBER_OF_BINS:                Number of Bins
+  POG_CUSTOM_FLAG:               Is POG Custom
+
+  # ── Organisation ──────────────────────────────────────────────────────────
+  FIELD_SERVICE_ORG_CODE:        Field Service Org Code
+  FIELD_SERVICE_ORG_DESC:        Field Service Org
+
+  # ── Financial / Class ─────────────────────────────────────────────────────
+  COMMISSION_CLASS_CODE:         Commission Class Code
+  COMMISSION_CLASS_DESC:         Commission Class
+  THRESHOLD_CLASS_CODE:          Threshold Class Code
+  THRESHOLD_CLASS_DESC:          Threshold Class
+  RESPONSE_CLASS_CODE:           Response Class Code
+  RESPONSE_CLASS_DESC:           Response Class
+  FINANCIAL_CLASS_CODE:          Financial Class Code
+  FINANCIAL_CLASS_DESC:          Financial Class
+  REINVESTMENT_AMOUNT:           Reinvestment Amount

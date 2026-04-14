@@ -1,0 +1,190 @@
+# locations.yaml — visible columns for DIMCORE.LOCATIONS (Strategy A)
+# LOCATION_KEY is excluded (primary key, always hidden automatically)
+# Excluded: _KEY FK columns (REPORT_TO_LOCATION_KEY, BILL_TO_LOCATION_KEY),
+#           rep _IND flags, OTHER_* contacts, Mailing/Billing/Shipping addresses,
+#           operational scheduling (CALL_*, COURIER_*, PROCALL_*),
+#           LOAD_TIMESTAMP, SITE_KEY, SUB_SITE_KEY, CREATED_TIMESTAMP, CHANGED_TIMESTAMP
+
+visible_columns:
+
+  # ── Location Identification ───────────────────────────────────────────────
+  LOCATION_NUMBER:               Retailer Number
+  LOCATION_NAME:                 Retailer Name
+  LOCATION_TYPE_CODE:            Location Type Code
+  LOCATION_TYPE_DESC:            Location Type
+  STORE_NUMBER:                  Store Number
+  FIRST_RETAILER_NUMBER:         First Retailer Number
+  NEXT_RETAILER_NUMBER:          Next Retailer Number
+  PRIOR_RETAILER_NUMBER:         Prior Retailer Number
+  TAX_NAME:                      Tax Name
+
+  # ── Status ────────────────────────────────────────────────────────────────
+  STATUS_CODE:                   Status Code
+  STATUS_DESC:                   Status
+  STATUS_REASON_CODE:            Status Reason Code
+  STATUS_REASON_DESC:            Status Reason
+  STATUS_CHANGE_TIMESTAMP:       Status Change Date
+  STATUS_CHANGE_COMMENT:         Status Change Comment
+  ACTIVATION_DATE:               Activation Date
+  DEACTIVATION_DATE:             Deactivation Date
+  REACTIVATION_DATE:             Reactivation Date
+  ONLINE_STATUS_FLAG:            Is Online Active
+  INSTANT_STATUS_FLAG:           Is Instant Active
+
+  # ── Hierarchy ─────────────────────────────────────────────────────────────
+  REGION_CODE:                   Region Code
+  REGION_DESC:                   Region
+  DISTRICT_CODE:                 District Code
+  DISTRICT_DESC:                 District
+
+  # ── Chain ─────────────────────────────────────────────────────────────────
+  CHAIN_CODE:                    Chain Code
+  CHAIN_TYPE_CODE:               Chain Type Code
+  CHAIN_TYPE_DESC:               Chain Type
+  CHAIN_IND:                     Is Chain
+  SUPER_CHAIN_NUMBER:            Super Chain Number
+  SUPER_CHAIN_NAME:              Super Chain Name
+
+  # ── Retail Classification ─────────────────────────────────────────────────
+  TYPE_CODE:                     Retailer Type Code
+  TYPE_DESC:                     Retailer Type
+  TRADE_CHANNEL_CODE:            Trade Channel Code
+  TRADE_CHANNEL_DESC:            Trade Channel
+  SIC_TYPE_CODE:                 SIC Type Code
+  SIC_TYPE_DESC:                 SIC Type
+  OWNERSHIP_TYPE_CODE:           Ownership Type Code
+  OWNERSHIP_TYPE_DESC:           Ownership Type
+  CONTRACT_TYPE_CODE:            Contract Type Code
+  CONTRACT_TYPE_DESC:            Contract Type
+  ADA_CODE:                      ADA Code
+  ADA_DESC:                      ADA
+  ADA_AUDIT_CODE:                ADA Audit Code
+  ADA_AUDIT_DESC:                ADA Audit
+
+  # ── Reporting Hierarchy ───────────────────────────────────────────────────
+  REPORT_TO_RETAILER_NUMBER:     Report-To Retailer Number
+  REPORT_TO_RETAILER_NAME:       Report-To Retailer Name
+  BILL_TO_RETAILER_NUMBER:       Bill-To Retailer Number
+  BILL_TO_RETAILER_NAME:         Bill-To Retailer Name
+  BILL_TO_TYPE_CODE:             Bill-To Type Code
+  BILL_TO_TYPE_DESC:             Bill-To Type
+
+  # ── Contact ───────────────────────────────────────────────────────────────
+  PHONE_NUMBER:                  Phone Number
+  MOBILE_NUMBER:                 Mobile Number
+  FAX_NUMBER:                    Fax Number
+
+  # ── Primary Contact Person ────────────────────────────────────────────────
+  PRIMARY_PREFIX:                Primary Prefix
+  PRIMARY_FIRST_NAME:            Primary First Name
+  PRIMARY_LAST_NAME:             Primary Last Name
+  PRIMARY_GENDER:                Primary Gender
+  PRIMARY_PHONE_NUMBER:          Primary Phone
+  PRIMARY_EMAIL:                 Primary Email
+  PRIMARY_JOB_TITLE:             Primary Job Title
+
+  # ── Secondary Contact Person ──────────────────────────────────────────────
+  SECONDARY_FIRST_NAME:          Secondary First Name
+  SECONDARY_LAST_NAME:           Secondary Last Name
+  SECONDARY_PHONE_NUMBER:        Secondary Phone
+  SECONDARY_EMAIL:               Secondary Email
+  SECONDARY_JOB_TITLE:           Secondary Job Title
+
+  # ── Tertiary Contact Person ───────────────────────────────────────────────
+  TERTIARY_FIRST_NAME:           Tertiary First Name
+  TERTIARY_LAST_NAME:            Tertiary Last Name
+  TERTIARY_PHONE_NUMBER:         Tertiary Phone
+  TERTIARY_EMAIL:                Tertiary Email
+  TERTIARY_JOB_TITLE:            Tertiary Job Title
+
+  # ── Primary Address ───────────────────────────────────────────────────────
+  PRIMARY_ADDRESS1:              Address Line 1
+  PRIMARY_ADDRESS2:              Address Line 2
+  PRIMARY_ADDRESS3:              Address Line 3
+  PRIMARY_CITY:                  City
+  PRIMARY_COUNTY_CODE:           County Code
+  PRIMARY_COUNTY_DESC:           County
+  PRIMARY_STATE_CODE:            State Code
+  PRIMARY_STATE_DESC:            State
+  PRIMARY_COUNTRY_CODE:          Country Code
+  PRIMARY_COUNTRY_DESC:          Country
+  PRIMARY_ZIP_CODE:              Zip Code
+  PRIMARY_ZIP_CODE_EXT:          Zip Code Extension
+  LATITUDE:                      Latitude
+  LONGITUDE:                     Longitude
+  FIPS_CODE:                     FIPS Code
+  FIPS_DESC:                     FIPS
+
+  # ── Sales Representatives ─────────────────────────────────────────────────
+  FIELD_SERVICE_REP_NUMBER:      Field Service Rep Number
+  FIELD_SERVICE_REP_NAME:        Field Service Rep
+  ORDER_REP_NUMBER:              Order Rep Number
+  ORDER_REP_NAME:                Order Rep
+  LOTTERY_SALES_REP_NUMBER:      Lottery Sales Rep Number
+  LOTTERY_SALES_REP_NAME:        Lottery Sales Rep
+  ACCOUNT_REP_NUMBER:            Account Rep Number
+  ACCOUNT_REP_NAME:              Account Rep
+  BUSINESS_DEV_ASSOCIATE_NUMBER: Business Dev Associate Number
+  BUSINESS_DEV_ASSOCIATE_NAME:   Business Dev Associate
+  RETAILER_SPECIALIST_NUMBER:    Retailer Specialist Number
+  RETAILER_SPECIALIST_NAME:      Retailer Specialist
+  REGIONAL_SALES_MANAGER_NUMBER: Regional Sales Manager Number
+  REGIONAL_SALES_MANAGER_NAME:   Regional Sales Manager
+  DISTRICT_SALES_MANAGER_NUMBER: District Sales Manager Number
+  DISTRICT_SALES_MANAGER_NAME:   District Sales Manager
+  ORDER_SALES_MANAGER_NUMBER:    Order Sales Manager Number
+  ORDER_SALES_MANAGER_NAME:      Order Sales Manager
+  ORDER_SALES_TEAM_MANAGER_NUMBER: Order Sales Team Manager Number
+  ORDER_SALES_TEAM_MANAGER_NAME: Order Sales Team Manager
+  EXTRA1_REP_NUMBER:             Extra Rep 1 Number
+  EXTRA1_REP_NAME:               Extra Rep 1
+  EXTRA2_REP_NUMBER:             Extra Rep 2 Number
+  EXTRA2_REP_NAME:               Extra Rep 2
+  EXTRA3_REP_NUMBER:             Extra Rep 3 Number
+  EXTRA3_REP_NAME:               Extra Rep 3
+  EXTRA4_REP_NUMBER:             Extra Rep 4 Number
+  EXTRA4_REP_NAME:               Extra Rep 4
+
+  # ── Financial ─────────────────────────────────────────────────────────────
+  LINE_CHARGE_CLASS_CODE:        Line Charge Class Code
+  LINE_CHARGE_CLASS_DESC:        Line Charge Class
+  SETTLE_CLASS_CODE:             Settle Class Code
+  SETTLE_CLASS_DESC:             Settle Class
+  CREDIT_LIMIT:                  Credit Limit
+  EFT_DEBIT_IND:                 EFT Debit
+  EFT_CREDIT_IND:                EFT Credit
+
+  # ── License / Compliance ──────────────────────────────────────────────────
+  LICENSE_EXP_DATE:              License Expiry Date
+  LICENSE_TYPE_CODE:             License Type Code
+  LICENSE_TYPE_DESC:             License Type
+  APPLICATION_RECEIVED_DATE:     Application Received Date
+  COVERAGE_LEVEL_AMOUNT:         Coverage Level Amount
+  SURETY_EFFECTIVE_DATE:         Surety Effective Date
+  SURETY_EXPIRATION_DATE:        Surety Expiration Date
+  INTERNAL_BOND_RENEWAL_DATE:    Internal Bond Renewal Date
+  EXTERNAL_BOND_RENEWAL_DATE:    External Bond Renewal Date
+  ADDITIONAL_LOCATION_COUNT_FOR_PRIMARY_OWNER: Additional Locations for Primary Owner
+  APPLICATION_COMPLIANCE_DESC:   Application Compliance
+  LEGAL_COMPLIANCE_DESC:         Legal Compliance
+  SURETY_COMPLIANCE_DESC:        Surety Compliance
+  STATE_TAX_COMPLIANCE_DESC:     State Tax Compliance
+  LEGAL_ENTITY_NAME_COMPLIANCE_DESC: Legal Entity Name Compliance
+  LOCATION_FORM_COMPLIANCE_DESC: Location Form Compliance
+  EFT_COMPLIANCE_DESC:           EFT Compliance
+  OWNER_CREDIT_COMPLIANCE_DESC:  Owner Credit Compliance
+  OWNER_PHOTO_ID_COMPLIANCE_DESC: Owner Photo ID Compliance
+  OWNER_BACKGROUND_COMPLIANCE_DESC: Owner Background Compliance
+
+  # ── Equipment / Volume ────────────────────────────────────────────────────
+  DISPENSERS:                    Dispensers
+  NUMBER_OF_ITVMS:               Number of ITVMs
+  UNIQUE_GAMES:                  Unique Games
+  SALES_VOLUME_CODE:             Sales Volume Code
+  SALES_VOLUME_DESC:             Sales Volume
+  LOW_VOLUME_GROUP_CODE:         Low Volume Group Code
+  LOW_VOLUME_GROUP_DESC:         Low Volume Group
+  KENO_MONITOR:                  Keno Monitor
+  BINGO_MONITOR:                 Bingo Monitor
+  KENO_TYPE:                     Keno Type
+  CUSTOM_INVOICE_FLAG:           Custom Invoice

@@ -166,12 +166,17 @@ Full design doc: `model_generator/DESIGN.md`
 
 ### Star Schema Rules
 
+Fact table columns are classified in priority order:
+
 | Column | Becomes |
 |---|---|
-| Exact match on a dimension join key | Hidden, `int64` (relationship key) |
-| Ends in `_COUNT` / `_AMOUNT` / `_QUANTITY` (configurable) | Hidden source column + `CALCULATE(SUM(...))` measure |
-| Other `ALL_UPPERCASE` | Hidden |
-| `Title Case` | Visible |
+| Name ends with `_KEY` | Hidden, `int64` (join key — no relationship, joined via M query) |
+| Ends in `_COUNT` / `_AMOUNT` / `_QUANTITY` (configurable) | Hidden source column + `CALCULATE(SUM(...))` measure under `Base Measures` display folder |
+| Anything else | Visible, in root of field pane |
+
+Dimension columns are expanded into the fact table via Power Query merged queries (`Table.NestedJoin` + `Table.ExpandTableColumn`). Each dimension's columns appear under a display folder named after the dimension (e.g. `Dates`, `Products`). No `relationships.tmdl` is generated.
+
+If two dimensions expose a column with the same display name (e.g. both Products and Locations have `Settle Class Code`), the generator automatically prefixes with the dimension name: `Products Settle Class Code`, `Locations Settle Class Code`.
 
 ---
 

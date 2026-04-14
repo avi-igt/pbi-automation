@@ -11,7 +11,7 @@
 
 **Two Power BI automation tools for Brightstar Lottery — one repo.**
 
-[Quick Start](#quick-start) · [Pipeline](#pipeline) · [report-generator](#report-generator) · [model-generator](#model-generator) · [Repository Structure](#repository-structure) · [Troubleshooting](#troubleshooting)
+[Quick Start](#quick-start) · [Pipeline](#pipeline) · [report-generator](#report-generator) · [model-generator](#model-generator) · [How To](#how-to) · [Repository Structure](#repository-structure) · [Troubleshooting](#troubleshooting)
 
 </div>
 
@@ -230,33 +230,61 @@ _QUANTITY = int64,   #,##0
 
 [dimensions]
 # alias = SCHEMA.TABLE, primary_key=COLUMN, strategy=A|B
+#
+# strategy=A  CONFIG-DRIVEN: visible columns and their display names are declared
+#             in model_generator/dimensions/<alias>.yaml. Any column not listed is
+#             hidden. Use for all DIMCORE tables (ALL_UPPERCASE columns).
+#
+# strategy=B  AUTO-DISCOVER: all non-primary-key columns are expanded into the
+#             fact table with auto-derived display names (SNAKE_CASE → Title Case).
+#             Use for small domain tables where you want everything visible.
 dates     = DIMCORE.DATES,     primary_key=DATE_KEY,     strategy=A
 products  = DIMCORE.PRODUCTS,  primary_key=PRODUCT_KEY,  strategy=A
-locations = DIMCORE.LOCATIONS, primary_key=LOCATION_KEY, strategy=B
+locations = DIMCORE.LOCATIONS, primary_key=LOCATION_KEY, strategy=A
+terminals = DIMCORE.TERMINALS, primary_key=TERMINAL_KEY, strategy=A
 
 [model.financial_daily]
 display_name = Financial Daily LDI
 fact_table   = FINANCIAL.FINANCIAL_DAILY
 dimensions   = dates, products, locations
+
+[model.draw_sales]
+display_name  = Draw Sales LDI
+fact_table    = DRAW.DRAW_SALES
+dimensions    = dates, products, locations
+filter_column = BUSINESS_TIMESTAMP    # optional: adds RangeStart/RangeEnd incremental refresh
 ```
 
-**Non-standard join key:** `dimensions = dates, products:GAME_PRODUCT_KEY`
-→ produces `fromColumn: GAME_PRODUCT_KEY, toColumn: PRODUCT_KEY`
+**Non-standard join key:** when the fact table's join column differs from the dimension's `primary_key`, specify it with a colon:
+```ini
+dimensions = dates, products:GAME_PRODUCT_KEY
+```
+The generator joins `GAME_PRODUCT_KEY` (fact) → `PRODUCT_KEY` (dim) and the product fields land in the `Products` display folder as normal.
 
-**Role-playing dimension:** add `inherit=<alias>` to reuse an existing dimension's YAML with a different alias.
+**Role-playing dimension:** add `inherit=<alias>` to reuse an existing dimension's YAML with a different alias and display folder:
+```ini
+dates_draw = DIMCORE.DATES, primary_key=DATE_KEY, strategy=A, inherit=dates
+```
+Reference it in the model using the new alias with a join key override:
+```ini
+dimensions = dates, dates_draw:DRAW_DATE_KEY, products
+```
 
-### Star schema column rules
+### Fact table column rules
 
-Applied automatically to every fact table column:
+Applied automatically to every fact table column during generation:
 
 | Column | Output |
 |---|---|
-| Exact match on a dimension join key | Hidden, `int64` — relationship column only |
-| Ends in `_COUNT` / `_AMOUNT` / `_QUANTITY` | Hidden source column + `CALCULATE(SUM(...))` DAX measure |
-| Other `ALL_UPPERCASE` | Hidden |
-| `Title Case` | Visible |
+| Ends with `_KEY` | Hidden `int64` — join key, not surfaced to report authors |
+| Ends with `_COUNT` / `_AMOUNT` / `_QUANTITY` | Hidden source column + `CALCULATE(SUM(...))` DAX measure in **Base Measures** folder |
+| Everything else | Visible |
 
 Suffix matching is configurable in `[measure_suffixes]` — add new types without any code changes.
+
+### Merged queries (no TMDL relationships)
+
+Dimension data is joined into the fact table via Power Query `Table.NestedJoin` + `Table.ExpandTableColumn`, not TMDL relationships. This means the model works identically with `.rdl` paginated reports and `.pbip` visual reports. Dimension tables are present in Power Query but hidden from the model field pane. All dimension fields appear in the fact table grouped by a display folder named after the dimension alias (`Dates`, `Products`, `Locations`, etc.).
 
 ### Output
 
@@ -266,13 +294,14 @@ output/models/
     .platform
     definition.pbism
     definition/
-      expressions.tmdl      ← Snowflake connection params (env-specific)
-      relationships.tmdl    ← auto-generated from dimension config
+      expressions.tmdl      ← Snowflake connection params + optional RangeStart/RangeEnd
+      model.tmdl            ← ref table declarations
+      database.tmdl
       tables/
-        FINANCIAL_DAILY.tmdl
-        DATES.tmdl
-        PRODUCTS.tmdl
-        ...
+        Financial Daily.tmdl   ← fact table: all columns + merged dimension fields + measures
+        Dates.tmdl             ← dimension staging table (isHidden)
+        Products.tmdl          ← dimension staging table (isHidden)
+        Locations.tmdl         ← dimension staging table (isHidden)
 
   Financial Daily LDI.Report/
     .platform
@@ -286,6 +315,8 @@ output/models/
       StaticResources/SharedResources/BaseThemes/CY24SU10.json
 ```
 
+No `relationships.tmdl` is generated — dimensions are joined via Power Query merged queries in the fact table's M partition.
+
 Both folders must be deployed together to `lpc-v1-app-ldi-pbi-mos`.
 
 ### Deployment
@@ -293,6 +324,137 @@ Both folders must be deployed together to `lpc-v1-app-ldi-pbi-mos`.
 1. Copy `output/models/<Name>.SemanticModel/` and `output/models/<Name>.Report/` to `lpc-v1-app-ldi-pbi-mos`
 2. Run ALM Toolkit diff
 3. Open a PR with `MOSC-####` commit
+
+---
+
+## How To
+
+### Add a new dimension table
+
+This is the complete procedure for wiring a new dimension (e.g. `DRAW.DRAW_INFORMATION`) into one or more semantic models.
+
+**Step 1 — Register the dimension in `semantic.properties`**
+
+Add a line to the `[dimensions]` section:
+
+```ini
+[dimensions]
+dates            = DIMCORE.DATES,         primary_key=DATE_KEY,      strategy=A
+products         = DIMCORE.PRODUCTS,      primary_key=PRODUCT_KEY,   strategy=A
+locations        = DIMCORE.LOCATIONS,     primary_key=LOCATION_KEY,  strategy=A
+terminals        = DIMCORE.TERMINALS,     primary_key=TERMINAL_KEY,  strategy=A
+draw_information = DRAW.DRAW_INFORMATION, primary_key=DRAW_INFO_KEY, strategy=A  # ← new
+```
+
+- `alias` (`draw_information`) becomes the Power Query table name (`Draw Information`), the TMDL file name (`Draw Information.tmdl`), and the display folder in the model field pane.
+- `primary_key` is the column in the dimension table used for the join.
+- `strategy=A` means you control which columns are visible via a YAML file (recommended). `strategy=B` auto-expands all non-key columns using auto-derived display names.
+
+**Step 2 — Create the dimension YAML** *(Strategy A only)*
+
+Create `model_generator/dimensions/draw_information.yaml`:
+
+```yaml
+# draw_information.yaml — visible columns for DRAW.DRAW_INFORMATION (Strategy A)
+# DRAW_INFO_KEY is excluded (primary key, always hidden automatically)
+
+visible_columns:
+  DRAW_NUMBER:           Draw Number
+  DRAW_DATE:             Draw Date
+  DRAW_DESCRIPTION:      Draw Description
+  JACKPOT_AMOUNT:        Jackpot Amount
+  CURRENT_DRAW_IND:      Is Current Draw
+  # add more columns as needed
+```
+
+Only columns listed here are expanded into the fact table and shown in the model field pane. Any column not listed is silently excluded from the expand step.
+
+For `strategy=B`, skip this file entirely — all non-key columns are auto-expanded with `SNAKE_CASE → Title Case` display names.
+
+**Step 3 — Add the dimension to the model**
+
+In the relevant `[model.*]` section, append the alias to the `dimensions` list:
+
+```ini
+[model.draw_sales]
+display_name  = Draw Sales LDI
+fact_table    = DRAW.DRAW_SALES
+dimensions    = dates, products, locations, draw_information  # ← appended
+filter_column = BUSINESS_TIMESTAMP
+```
+
+If the fact table's join column has a **different name** from the dimension's `primary_key`, add a colon override:
+
+```ini
+dimensions = dates, products, locations, draw_information:FACT_DRAW_INFO_KEY
+#                                                          ↑ fact column name
+```
+
+This joins `FACT_DRAW_INFO_KEY` (fact) → `DRAW_INFO_KEY` (dim) while keeping the dimension's primary key as declared.
+
+**Step 4 — Regenerate**
+
+```bash
+python generate_models.py --model draw_sales
+```
+
+The generated fact table M query will gain two new steps:
+
+```powerquery
+#"Merged Draw Information" = Table.NestedJoin(prev, {"DRAW_INFO_KEY"},
+    #"Draw Information", {"DRAW_INFO_KEY"}, "Draw Information", JoinKind.LeftOuter),
+#"Expanded Draw Information" = Table.ExpandTableColumn(#"Merged Draw Information",
+    "Draw Information", {"DRAW_NUMBER", "DRAW_DATE", ...}, {"Draw Number", "Draw Date", ...})
+```
+
+And the expanded columns will appear in a **Draw Information** display folder in the model field pane.
+
+---
+
+### Add a new semantic model
+
+**Step 1 — Add a `[model.*]` section to `semantic.properties`**
+
+```ini
+[model.my_new_model]
+display_name = My New Model LDI
+fact_table   = SCHEMA.FACT_TABLE
+dimensions   = dates, products, locations   # use any registered dimension aliases
+```
+
+`display_name` must end with `LDI`, `RSM`, or `RPT` (handbook requirement). The name minus the postfix becomes the Power Query table name and TMDL file name.
+
+**Step 2 — Add a `filter_column` if the fact table has a timestamp column** *(optional)*
+
+```ini
+filter_column = BUSINESS_TIMESTAMP
+```
+
+This adds `RangeStart` / `RangeEnd` parameters to `expressions.tmdl` and a `Table.SelectRows` filter step in the fact table's M query, enabling incremental refresh in Fabric.
+
+**Step 3 — Generate**
+
+```bash
+python generate_models.py --model my_new_model
+```
+
+---
+
+### Add or change a measure suffix
+
+Fact columns ending with the configured suffixes are automatically converted to hidden source columns with a `CALCULATE(SUM(...))` DAX measure in the **Base Measures** display folder.
+
+To add a new suffix, edit `[measure_suffixes]` in `semantic.properties`:
+
+```ini
+[measure_suffixes]
+_COUNT    = int64,   0
+_AMOUNT   = decimal, #,##0.00
+_QUANTITY = int64,   #,##0
+_WEIGHT   = decimal, #,##0.000   # ← new: any column ending _WEIGHT gets a measure
+```
+
+No code changes required. Regenerate to apply.
 
 ---
 
@@ -328,9 +490,11 @@ pbi-automation/
 │   ├── report_builder.py       # .Report content builders (no file I/O)
 │   ├── model_generator.py      # orchestrates one model: fetch → build → write
 │   ├── DESIGN.md               # model_generator design document
-│   ├── dimensions/             # Strategy A YAML files
+│   ├── dimensions/             # Strategy A YAML files (one per dimension alias)
 │   │   ├── dates.yaml
-│   │   └── products.yaml
+│   │   ├── products.yaml
+│   │   ├── locations.yaml
+│   │   └── terminals.yaml
 │   └── templates/
 │       └── BaseThemes/
 │           └── CY24SU10.json   # Power BI theme bundled into every .Report folder

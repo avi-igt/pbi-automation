@@ -802,8 +802,8 @@ def generate_rdl(report: dict) -> str:
 
 {param_grid_xml}
 
-  <Code>Public Function GetCST As DateTime
-return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("{c.timezone if c else "Central Standard Time"}"))
+  <Code>Public Function GetCST() As DateTime
+    Return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("{c.timezone if c else "Central Standard Time"}"))
 End Function
 </Code>
 

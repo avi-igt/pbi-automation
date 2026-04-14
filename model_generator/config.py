@@ -70,6 +70,7 @@ class ModelDef:
     dimensions: list[str]       # aliases in order, e.g. ["dates", "products", "locations"]
     dim_fact_keys: dict[str, str] = None  # alias → fact column override, e.g. {"products": "GAME_PRODUCT_KEY"}
                                           # if absent for an alias, falls back to dim's primary_key
+    filter_column: str | None = None      # column used for RangeStart/RangeEnd incremental refresh filter
 
     def __post_init__(self):
         if self.dim_fact_keys is None:
@@ -168,6 +169,10 @@ def _parse_model_section(model_id: str, cp: configparser.ConfigParser,
         else:
             dimensions.append(raw)
 
+    filter_column: str | None = None
+    if cp.has_option(section, "filter_column"):
+        filter_column = cp.get(section, "filter_column").strip().upper()
+
     return ModelDef(
         model_id=model_id,
         display_name=display_name,
@@ -175,6 +180,7 @@ def _parse_model_section(model_id: str, cp: configparser.ConfigParser,
         fact_table=fact_table,
         dimensions=dimensions,
         dim_fact_keys=dim_fact_keys,
+        filter_column=filter_column,
     )
 
 

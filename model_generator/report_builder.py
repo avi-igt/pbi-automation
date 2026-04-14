@@ -264,6 +264,32 @@ def build_local_settings_json() -> str:
 
 
 # ---------------------------------------------------------------------------
+# <display_name>.pbip  (sits alongside .Report and .SemanticModel in output_dir)
+# ---------------------------------------------------------------------------
+
+def build_pbip_file(model_def: ModelDef) -> str:
+    """Top-level .pbip project file that ties the report folder into a PBIP project."""
+    payload = {
+        "$schema": (
+            "https://developer.microsoft.com/json-schemas/fabric/pbip/"
+            "pbipProperties/1.0.0/schema.json"
+        ),
+        "version": "1.0",
+        "artifacts": [
+            {
+                "report": {
+                    "path": f"{model_def.display_name}.Report"
+                }
+            }
+        ],
+        "settings": {
+            "enableAutoRecovery": True
+        },
+    }
+    return json.dumps(payload, indent=2)
+
+
+# ---------------------------------------------------------------------------
 # Convenience: return all IDs needed by model_generator
 # ---------------------------------------------------------------------------
 
