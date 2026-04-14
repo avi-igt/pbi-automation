@@ -469,14 +469,34 @@ def generate_pbip(report: dict, output_dir: str) -> str:
 
     # --- .pbip project file (one level up from .Report folder) ---
     pbip_content = {
+        "$schema": "https://developer.microsoft.com/json-schemas/fabric/pbip/pbipProperties/1.0.0/schema.json",
         "version": "1.0",
         "artifacts": [
             {"report": {"path": f"{safe_rpt}.Report"}}
         ],
-        "settings": {"enableTmdlV2": True}
+        "settings": {"enableAutoRecovery": True}
     }
     pbip_file = out / folder_name / f"{safe_rpt}.pbip"
     pbip_file.write_text(json.dumps(pbip_content, indent=2), encoding="utf-8")
+
+    # --- Stub .SemanticModel (so PBI Desktop can resolve the byPath reference) ---
+    # In production the real .SemanticModel lives in lpc-v1-app-ldi-pbi-mos; this
+    # stub satisfies the schema validator locally. Only created once per unique model.
+    stub_sm = out / folder_name / f"{semantic_model_name}.SemanticModel"
+    if not stub_sm.exists():
+        stub_def = stub_sm / "definition"
+        stub_def.mkdir(parents=True)
+        (stub_sm / "definition.pbism").write_text(json.dumps({
+            "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/semanticModel/definitionProperties/1.0.0/schema.json",
+            "version": "4.2",
+            "settings": {}
+        }, indent=2), encoding="utf-8")
+        (stub_def / "database.tmdl").write_text(
+            "database\n\tcompatibilityLevel: 1600\n", encoding="utf-8"
+        )
+        (stub_def / "model.tmdl").write_text(
+            "model Model\n\tculture: en-US\n", encoding="utf-8"
+        )
 
     # --- README.md ---
     _write_readme(report_dir, report, section_name=section_name,

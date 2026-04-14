@@ -537,9 +537,10 @@ def generate_rdl(report: dict) -> str:
                 "WHERE\n  " + "\n  -- AND ".join(f"/* {h} */" for h in where_hints)
                 if where_hints else ""
             )
+            sql_hint = re.sub(r"[^\w\s\-]", "", report["name"]).strip().replace(" ", "_")
             sql_text = (
                 f"-- AUTO-GENERATED STUB: replace with actual SQL\n"
-                f"-- Or place hand-authored SQL in: sql/{re.sub(r'[^\\w\\s\\-]', '', report['name']).strip().replace(' ', '_')}.sql\n"
+                f"-- Or place hand-authored SQL in: sql/{sql_hint}.sql\n"
                 f"SELECT\n    {select_cols}\nFROM\n    TODO_schema.TODO_table\n{where_block}"
             )
 
