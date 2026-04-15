@@ -11,7 +11,7 @@
 
 **Two Power BI automation tools for Brightstar Lottery — one repo.**
 
-[Quick Start](#quick-start) · [Pipeline](#pipeline) · [report-generator](#report-generator) · [model-generator](#model-generator) · [Full Lifecycle](#full-development-lifecycle) · [report_generator — How To](#report_generator--how-to) · [model_generator — How To](#model_generator--how-to) · [Repository Structure](#repository-structure) · [Troubleshooting](#troubleshooting)
+[Quick Start](#quick-start) · [Pipeline](#pipeline) · [report-generator](#report-generator) · [model-generator](#model-generator) · [Full Lifecycle](#full-development-lifecycle) · [report_generator — How To](#report_generator--how-to) · [model_generator — How To](#model_generator--how-to) · [Utilities](#utilities) · [Repository Structure](#repository-structure) · [Troubleshooting](#troubleshooting)
 
 </div>
 
@@ -645,12 +645,37 @@ No code changes required. Regenerate to apply.
 
 ---
 
+## Utilities
+
+### `clean.py` — wipe generated output
+
+Generated files accumulate across runs. Use `clean.py` to wipe output directories before a fresh regeneration, or to remove stale artifacts before deployment.
+
+```bash
+python clean.py output              # wipe all output/ subdirectories
+python clean.py output --rdl        # wipe output/rdl/ only
+python clean.py output --pbip       # wipe output/pbip/ only
+python clean.py output --models     # wipe output/models/ only
+python clean.py output --specs      # wipe output/specs/ only
+python clean.py output --json       # wipe output/json/ only
+python clean.py output --from-spec  # wipe output/from-spec/ only
+python clean.py sql                 # wipe report_generator/sql/ (prompts for confirmation)
+python clean.py sql --yes           # skip confirmation prompt
+python clean.py output sql          # wipe both output/ and sql/ in one command
+python clean.py --dry-run output    # preview what would be deleted without deleting
+```
+
+> **Note on `clean.py sql`:** `report_generator/sql/` contains hand-authored SQL files that are not regenerated automatically. The `sql` target always prompts for confirmation unless `--yes` is passed. Use `--dry-run` to review what would be removed first.
+
+---
+
 ## Repository Structure
 
 ```
 pbi-automation/
 ├── generate_reports.py         # report-generator entry point
 ├── generate_models.py          # model-generator entry point
+├── clean.py                    # utility: wipe output/ and/or report_generator/sql/
 ├── pbi.properties              # report-generator config (workspace, DSNs, keywords)
 ├── semantic.properties         # model-generator config (Snowflake, dimensions, models)
 ├── requirements.txt            # combined deps

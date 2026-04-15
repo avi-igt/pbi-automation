@@ -408,6 +408,20 @@ def build_fact_table_tmdl(
     measures_folder  = f"{table_name} Measures"  # e.g. "Draw Sales Measures"
     classified = classify_columns(columns, measure_suffixes)
 
+    # Collect resolved dim output names so visible fact columns can avoid collisions.
+    # A fact column whose Title Case name collides with a dim output name is prefixed
+    # with "Fact " (e.g. CALENDAR_YEAR → "Fact Calendar Year" when the Dates dim
+    # already exposes a column named "Calendar Year").
+    _dim_output_names: set[str] = {
+        output_name
+        for ds in dim_specs
+        for _, output_name, _ in ds.visible_cols
+    }
+
+    def _fact_display_name(col_name: str) -> str:
+        tentative = to_title(col_name)
+        return f"Fact {tentative}" if tentative in _dim_output_names else tentative
+
     lines = [
         f"table '{table_name}'",
         f"\tlineageTag: {new_tag()}",
@@ -430,13 +444,14 @@ def build_fact_table_tmdl(
                 display_folder=measures_folder,
             ))
 
-    # Visible fact-own columns — grouped in "<TableName> Dims" folder, renamed to Title Case
+    # Visible fact-own columns — grouped in "<TableName> Dims" folder, renamed to Title Case.
+    # If the Title Case name collides with a dimension output name, prefix with "Fact ".
     for cc in classified:
         if cc.kind == "visible":
             lines.append(_col_block(
                 cc.info.name, cc.tmdl_type, hidden=False,
                 summarize_by="none",
-                display_name=to_title(cc.info.name),
+                display_name=_fact_display_name(cc.info.name),
                 display_folder=fact_dims_folder,
             ))
 
