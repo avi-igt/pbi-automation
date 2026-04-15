@@ -391,6 +391,117 @@ All generated artifacts comply with the Power BI Developer Handbook & Guide:
 
 ---
 
+## How To
+
+### Add a new semantic model
+
+1. Add a `[model.*]` section to `semantic.properties`:
+
+   ```ini
+   [model.my_model]
+   display_name = My Model LDI
+   fact_table   = SCHEMA.FACT_TABLE
+   dimensions   = dates, products, locations
+   ```
+
+   `display_name` must end with `LDI`, `RSM`, or `RPT` (handbook requirement).
+
+2. Optionally add `filter_column` for incremental refresh:
+
+   ```ini
+   filter_column = BUSINESS_TIMESTAMP
+   ```
+
+   This adds `RangeStart` / `RangeEnd` parameters to `expressions.tmdl` and a `Table.SelectRows` step in the fact M query.
+
+3. Generate:
+
+   ```bash
+   python generate_models.py --model my_model
+   ```
+
+---
+
+### Add a new dimension
+
+1. Register in `[dimensions]`:
+
+   ```ini
+   draw_information = DRAW.DRAW_INFORMATION, primary_key=DRAW_INFO_KEY, strategy=A
+   ```
+
+2. For `strategy=A`, create `model_generator/dimensions/draw_information.yaml`:
+
+   ```yaml
+   visible_columns:
+     DRAW_NUMBER:      Draw Number
+     DRAW_DATE:        Draw Date
+     DRAW_DESCRIPTION: Draw Description
+   ```
+
+   Only listed columns are expanded into the fact table. Omit the file for `strategy=B` (all non-key columns auto-expanded).
+
+3. Add the alias to the model's `dimensions` list:
+
+   ```ini
+   dimensions = dates, products, draw_information
+   ```
+
+   Non-standard fact join key: `draw_information:FACT_DRAW_KEY`
+
+4. Regenerate the model.
+
+---
+
+### Add a new measure suffix
+
+Edit `[measure_suffixes]` in `semantic.properties` — no code changes required:
+
+```ini
+[measure_suffixes]
+_COUNT    = int64,   0
+_AMOUNT   = decimal, #,##0.00
+_QUANTITY = int64,   #,##0
+_WEIGHT   = decimal, #,##0.000   # ← new
+```
+
+Any fact column ending `_WEIGHT` will produce a hidden source column and a `CALCULATE(SUM(...))` measure in the **Base Measures** display folder.
+
+---
+
+### Target a specific environment
+
+```bash
+python generate_models.py --env d1v1   # development (privatelink account)
+python generate_models.py --env c1v1   # certification / UAT
+python generate_models.py --env p1v1   # production
+```
+
+Per-environment values in `[snowflake.<env>]` override the base `[snowflake]` section for that run. The generated `expressions.tmdl` contains the env-specific server and warehouse.
+
+---
+
+### Use a role-playing dimension
+
+When a fact table joins the same physical table twice (e.g. two date keys), declare each join as a separate alias using `inherit=<parent>` to share the YAML:
+
+```ini
+[dimensions]
+dates           = DIMCORE.DATES, primary_key=DATE_KEY, strategy=A
+dates_draw      = DIMCORE.DATES, primary_key=DATE_KEY, strategy=A, inherit=dates
+dates_settle    = DIMCORE.DATES, primary_key=DATE_KEY, strategy=A, inherit=dates
+```
+
+Reference both aliases with their respective fact columns:
+
+```ini
+dimensions = dates, dates_draw:DRAW_DATE_KEY, dates_settle:SETTLE_DATE_KEY, products
+```
+
+Each alias produces an independent M staging table (`Dates Draw`, `Dates Settle`) and its own display folder in the field pane.
+
+---
+
 ## What This Tool Does Not Do
 
 - Does not generate derived measures (YTD, PY, ratios, KPIs) — those are authored

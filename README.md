@@ -11,7 +11,7 @@
 
 **Two Power BI automation tools for Brightstar Lottery — one repo.**
 
-[Quick Start](#quick-start) · [Pipeline](#pipeline) · [report-generator](#report-generator) · [model-generator](#model-generator) · [Full Lifecycle](#full-development-lifecycle) · [How To](#how-to) · [Repository Structure](#repository-structure) · [Troubleshooting](#troubleshooting)
+[Quick Start](#quick-start) · [Pipeline](#pipeline) · [report-generator](#report-generator) · [model-generator](#model-generator) · [Full Lifecycle](#full-development-lifecycle) · [report_generator — How To](#report_generator--how-to) · [model_generator — How To](#model_generator--how-to) · [Repository Structure](#repository-structure) · [Troubleshooting](#troubleshooting)
 
 </div>
 
@@ -109,14 +109,17 @@ All deployment-specific settings live here — edit before running.
 workspace = Missouri - D1V1
 
 [datasource_keywords]
-# Keywords matched (case-insensitive) against report name + summary
-# First match wins. Unmatched reports default to semantic_model.
+# Keywords matched (case-insensitive) against report name + summary + notes.
+# First match wins.
+# default_datasource — fallback when no keyword matches.
+#   Values: snowflake | db2 | semantic_model  (default: semantic_model)
+default_datasource = semantic_model
 snowflake = rdst, tmir, security, transaction
 db2       = claims, payments, annuities, debt, setoff, player, ssn, claimant
 
 [model_keywords]
-# Keywords matched to select the correct semantic model binding
-# More-specific entries first; last entry is the catch-all default
+# Keywords matched to select the correct semantic model binding.
+# More-specific entries first; last entry is the catch-all default.
 MO_Sales        = sales, validations, cancels
 MO_DrawData     = draw, game
 MO_CoreTables   = retailer list, chain store
@@ -134,12 +137,13 @@ implementation = 2.0
 
 ### Data source detection
 
-`config.py` auto-detects the data source per report by scanning name + summary + notes:
+`config.py` classifies each report by scanning `name + summary + notes` in this order:
 
-1. Match `[datasource_keywords] snowflake` → Snowflake ODBC
-2. Match `[datasource_keywords] db2` → DB2 ODBC
-3. Match `[model_keywords]` entries top-to-bottom → matching Semantic Model
-4. Default: last model in `[model_keywords]`
+1. Scan `[datasource_keywords]` top-to-bottom — first keyword match wins, returning `snowflake` or `db2`.
+2. If no keyword matches, return `default_datasource` (configurable; defaults to `semantic_model`).
+3. For `semantic_model` reports, `[model_keywords]` selects which semantic model to bind — first match wins, last entry is the catch-all default.
+
+`default_datasource` is the key lever for FRDs where all (or most) reports share the same data source but have generic names that contain no detectable keywords. See [report_generator — How To](#report_generator--how-to) for a worked example.
 
 ### Hand-authored SQL
 
@@ -432,7 +436,85 @@ pbi-tools deploy --manifest deploy/manifest.json \
 
 ---
 
-## How To
+## report_generator — How To
+
+### Set a default data source for an FRD
+
+By default, any report whose name and summary contain no keyword from `[datasource_keywords]` is classified as `semantic_model`. Use `default_datasource` to override that fallback for FRDs where all (or most) reports share the same data source.
+
+**Scenario A — Mixed FRD** (Snowflake + DB2 + semantic model reports, e.g. MO Performance Wizard FRD)
+
+Leave the default as-is. Keyword rules handle the known types; the rest fall back to `semantic_model`.
+
+```ini
+[datasource_keywords]
+default_datasource = semantic_model   # ← default, can be omitted
+snowflake = RDST, TMIR, Security
+db2       = claim, payment, annuities, debt, player
+```
+
+**Scenario B — All-Snowflake FRD** (e.g. TAC Data Examiner Supplemental Document.docx)
+
+Set `default_datasource = snowflake`. Every report that does not match a `db2` keyword will resolve to Snowflake ODBC — including reports with generic names like "Regional Center" or "Balance Report".
+
+```ini
+[datasource_keywords]
+default_datasource = snowflake
+snowflake = RDST, TMIR, Security
+db2       = claim, payment, annuities, debt, player
+```
+
+Keyword rules still fire first — a report named "TMIR Report" resolves to `snowflake` via keyword, not fallback. `default_datasource` only applies to reports that match nothing.
+
+Valid values: `snowflake` · `db2` · `semantic_model`
+
+---
+
+### Add hand-authored SQL for an ODBC report
+
+For Snowflake ODBC or DB2 reports, the generator produces an auto-stub SQL query with a comment indicating the expected file. To replace it with real SQL:
+
+1. Create a file in `report_generator/sql/` named after the report — spaces become underscores, same root as the `.rdl` output filename:
+
+   ```
+   report name:  "1042 Tax"
+   SQL file:     report_generator/sql/1042_Tax.sql
+   ```
+
+2. Write the query. Parameters referenced in the RDL (`@CalendarYear`, `@StartDate`, `@EndDate`) can be used directly as SQL bind parameters.
+
+3. Re-run the generator — the file is picked up automatically, no config change needed:
+
+   ```bash
+   python generate_reports.py --only rdl --report "1042 Tax"
+   ```
+
+If no `.sql` file is found, the generator falls back to `SELECT * FROM <table> -- TODO` and logs the expected path.
+
+---
+
+### Override a wrongly-detected data source
+
+If `infer_datasource()` picks the wrong type for a specific report, there are two options:
+
+**Option 1 — Tighten the keyword** (preferred for systematic fixes)
+
+Make the keyword more specific so it no longer matches the wrong report, or add a more-specific entry above the broad one:
+
+```ini
+[datasource_keywords]
+default_datasource = semantic_model
+snowflake = RDST, TMIR, Security    # tighten: remove "Security" if it causes false positives
+db2       = claim, payment, annuities, debt
+```
+
+**Option 2 — Edit the JSON checkpoint** (for one-off fixes)
+
+After `--only parse`, edit `output/json/frd_parsed.json` and change the `"datasource_type"` field for the affected report, then re-run `--only rdl` or `--only pbip`. The JSON is the human checkpoint exactly for this reason.
+
+---
+
+## model_generator — How To
 
 ### Add a new dimension table
 
