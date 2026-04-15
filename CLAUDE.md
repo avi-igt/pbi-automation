@@ -196,8 +196,8 @@ Fact table columns are classified in priority order:
 | Column | Becomes |
 |---|---|
 | Name ends with `_KEY` | Hidden, `int64` (join key — no relationship, joined via M query) |
-| Ends in `_COUNT` / `_AMOUNT` / `_QUANTITY` (configurable) | Hidden source column + `CALCULATE(SUM(...))` measure under `Base Measures` display folder |
-| Anything else | Visible, in root of field pane |
+| Ends in `_COUNT` / `_AMOUNT` / `_QUANTITY` (configurable) | Hidden source column + `CALCULATE(SUM(...))` measure under `<Table> Measures` display folder (e.g. `Draw Sales Measures`) |
+| Anything else | Visible, Title Case display name, in `<Table> Dims` display folder (e.g. `Draw Sales Dims`) |
 
 Dimension columns are expanded into the fact table via Power Query merged queries (`Table.NestedJoin` + `Table.ExpandTableColumn`). Each dimension's columns appear under a display folder named after the dimension (e.g. `Dates`, `Products`). No `relationships.tmdl` is generated.
 

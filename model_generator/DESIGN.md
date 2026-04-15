@@ -220,10 +220,10 @@ retrieve the full column list. Rules are applied in priority order:
 | Column pattern | TMDL output | Notes |
 |---|---|---|
 | Name ends with `_KEY` | Hidden, `dataType: int64`, `summarizeBy: none` | Identifies all join keys; no measure generated |
-| Ends in `_COUNT` (configurable) | Hidden source column + `CALCULATE(SUM(...))` measure | `format: "0"`, folder `Base Measures` |
-| Ends in `_AMOUNT` (configurable) | Hidden source column + `CALCULATE(SUM(...))` measure | `format: "#,##0.00"`, folder `Base Measures` |
-| Ends in `_QUANTITY` (configurable) | Hidden source column + `CALCULATE(SUM(...))` measure | `format: "#,##0"`, folder `Base Measures` |
-| Anything else | Visible column, `summarizeBy: none` | No display folder (root of field pane) |
+| Ends in `_COUNT` (configurable) | Hidden source column + `CALCULATE(SUM(...))` measure | `format: "0"`, folder `<Table> Measures` |
+| Ends in `_AMOUNT` (configurable) | Hidden source column + `CALCULATE(SUM(...))` measure | `format: "#,##0.00"`, folder `<Table> Measures` |
+| Ends in `_QUANTITY` (configurable) | Hidden source column + `CALCULATE(SUM(...))` measure | `format: "#,##0"`, folder `<Table> Measures` |
+| Anything else | Visible, Title Case display name, `summarizeBy: none` | `<Table> Dims` display folder |
 
 ### Dimension Column Display
 
@@ -254,8 +254,8 @@ SALES_COUNT                        →  Sales Count
 VALIDATION_BASED_SALES_AMOUNT      →  Validation Based Sales Amount
 ```
 
-All base measures go into `displayFolder: "Base Measures"`. Derived measures (YTD,
-PY, ratios) are authored manually in Tabular Editor after the base model is deployed.
+All base measures go into `displayFolder: "<Table> Measures"` (e.g. `Draw Sales Measures`).
+Derived measures (YTD, PY, ratios) are authored manually in Tabular Editor after the base model is deployed.
 
 ---
 
@@ -465,7 +465,7 @@ _QUANTITY = int64,   #,##0
 _WEIGHT   = decimal, #,##0.000   # ← new
 ```
 
-Any fact column ending `_WEIGHT` will produce a hidden source column and a `CALCULATE(SUM(...))` measure in the **Base Measures** display folder.
+Any fact column ending `_WEIGHT` will produce a hidden source column and a `CALCULATE(SUM(...))` measure in the **`<Table> Measures`** display folder.
 
 ---
 

@@ -281,8 +281,8 @@ Applied automatically to every fact table column during generation:
 | Column | Output |
 |---|---|
 | Ends with `_KEY` | Hidden `int64` — join key, not surfaced to report authors |
-| Ends with `_COUNT` / `_AMOUNT` / `_QUANTITY` | Hidden source column + `CALCULATE(SUM(...))` DAX measure in **Base Measures** folder |
-| Everything else | Visible |
+| Ends with `_COUNT` / `_AMOUNT` / `_QUANTITY` | Hidden source column + `CALCULATE(SUM(...))` DAX measure in **`<Table> Measures`** folder (e.g. `Draw Sales Measures`) |
+| Everything else | Visible, Title Case display name, in **`<Table> Dims`** folder (e.g. `Draw Sales Dims`) |
 
 Suffix matching is configurable in `[measure_suffixes]` — add new types without any code changes.
 
@@ -629,7 +629,7 @@ python generate_models.py --model my_new_model
 
 ### Add or change a measure suffix
 
-Fact columns ending with the configured suffixes are automatically converted to hidden source columns with a `CALCULATE(SUM(...))` DAX measure in the **Base Measures** display folder.
+Fact columns ending with the configured suffixes are automatically converted to hidden source columns with a `CALCULATE(SUM(...))` DAX measure in the **`<Table> Measures`** display folder (e.g. `Draw Sales Measures`).
 
 To add a new suffix, edit `[measure_suffixes]` in `semantic.properties`:
 

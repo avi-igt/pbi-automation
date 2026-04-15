@@ -403,7 +403,9 @@ def build_fact_table_tmdl(
     # both the M query ExpandTableColumn steps and the TMDL column blocks.
     dim_specs = _resolve_dim_name_collisions(dim_specs)
 
-    table_name = model_def.display_name.rsplit(" ", 1)[0]
+    table_name      = model_def.display_name.rsplit(" ", 1)[0]
+    fact_dims_folder = f"{table_name} Dims"      # e.g. "Draw Sales Dims"
+    measures_folder  = f"{table_name} Measures"  # e.g. "Draw Sales Measures"
     classified = classify_columns(columns, measure_suffixes)
 
     lines = [
@@ -419,19 +421,24 @@ def build_fact_table_tmdl(
         if cc.kind == "key":
             lines.append(_col_block(cc.info.name, cc.tmdl_type, hidden=True))
 
-    # Hidden measure source columns
+    # Hidden measure source columns — grouped in "<TableName> Measures" folder
     for ms in measure_suffixes:
         suffix_cols = [cc for cc in classified if cc.kind == ms.suffix]
         for cc in suffix_cols:
             lines.append(_col_block(
                 cc.info.name, cc.tmdl_type, hidden=True,
-                display_folder="Base Measures",
+                display_folder=measures_folder,
             ))
 
-    # Visible fact-own columns (non-key, non-measure)
+    # Visible fact-own columns — grouped in "<TableName> Dims" folder, renamed to Title Case
     for cc in classified:
         if cc.kind == "visible":
-            lines.append(_col_block(cc.info.name, cc.tmdl_type, hidden=False, summarize_by="none"))
+            lines.append(_col_block(
+                cc.info.name, cc.tmdl_type, hidden=False,
+                summarize_by="none",
+                display_name=to_title(cc.info.name),
+                display_folder=fact_dims_folder,
+            ))
 
     # Dimension columns (from merged queries), grouped by dimension
     for dim_spec in dim_specs:
@@ -445,12 +452,13 @@ def build_fact_table_tmdl(
                 display_folder=dim_folder,
             ))
 
-    # DAX measures — one per measure-suffix column
+    # DAX measures — one per measure-suffix column, grouped in "<TableName> Measures" folder
     for ms in measure_suffixes:
         suffix_cols = [cc for cc in classified if cc.kind == ms.suffix]
         for cc in suffix_cols:
             measure_name = to_title(cc.info.name)
-            lines.append(_measure_block(measure_name, table_name, cc.info.name, ms.fmt))
+            lines.append(_measure_block(measure_name, table_name, cc.info.name, ms.fmt,
+                                        display_folder=measures_folder))
             lines.append("")
 
     return "\n".join(lines)
