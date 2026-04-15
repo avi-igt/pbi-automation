@@ -329,19 +329,22 @@ Both folders must be deployed together to `lpc-v1-app-ldi-pbi-mos`.
 
 ## Full Development Lifecycle
 
-pbi-automation handles the first mile — turning requirements into report scaffolding. Two companion tools cover the rest of the lifecycle. Each is independent; install only what you need.
+pbi-automation handles the first mile — turning requirements into report scaffolding and semantic models. Two companion tools cover the rest of the lifecycle. Each is independent; install only what you need.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  PHASE 1 · SCAFFOLD          pbi-automation  (this tool)  · Python · MIT   │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
+│  report_generator                                                           │
 │  FRD.docx  ──►  frd_parser  ──►  frd_parsed.json  ──►  .rdl / .pbip / .md │
-│                                                                             │
 │  Reviewed .md spec  ──────────────────────────────►  .rdl / .pbip          │
 │                                                                             │
+│  model_generator                                                            │
+│  semantic.properties + Snowflake  ──►  .SemanticModel + .Report (TMDL)     │
+│                                                                             │
 └─────────────────────────┬───────────────────────────────────────────────────┘
-                          │  generated .rdl and .pbip files on disk
+                          │  .rdl / .pbip / .SemanticModel / .Report on disk
                           ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  PHASE 2 · DEVELOP           pbi-cli           (optional)  · Python · MIT  │
@@ -381,6 +384,8 @@ pbi-automation handles the first mile — turning requirements into report scaff
 
 ```bash
 # ── PHASE 1: Generate scaffolding ─────────────────────────────────────────
+
+# report_generator: FRD → reports
 python generate_reports.py "MO FRD v1.0.docx"
 # → output/rdl/**/*.rdl   (paginated reports)
 # → output/pbip/**/       (visual reports)
@@ -389,6 +394,12 @@ python generate_reports.py "MO FRD v1.0.docx"
 # Review specs, confirm datasource / SQL / model name, then regenerate
 python report_generator/spec_to_rdl.py output/specs/
 python report_generator/spec_to_pbip.py output/specs/
+
+# model_generator: semantic.properties → SemanticModel + Report
+python generate_models.py --list               # see configured models
+python generate_models.py                      # generate all models
+# → output/models/<Name>.SemanticModel/
+# → output/models/<Name>.Report/
 
 # ── PHASE 2: Develop & validate (pbi-cli) ─────────────────────────────────
 pbi connect localhost:50000          # connect to running PBI Desktop
