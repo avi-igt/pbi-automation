@@ -123,7 +123,7 @@ The client is used as a context manager (`with SnowflakeClient(cfg.snowflake) as
 
 Pure string-building functions (no file I/O). Each function returns a TMDL string for one artifact:
 - `build_table_tmdl(table_name, columns)` — full table definition with columns and measures
-- `build_relationships_tmdl(model_def, dimensions)` — all relationship declarations
+- `build_relationships_tmdl(model_def, fact_column_names, dim_defs)` — no-op stub (returns `""`); dimensions are joined via merged queries, not TMDL relationships
 - `build_expressions_tmdl(snowflake_cfg)` — Snowflake connection parameters
 
 **Star schema column rules** (applied in `build_table_tmdl`):

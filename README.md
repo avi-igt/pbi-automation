@@ -478,7 +478,6 @@ pbi-automation/
 │   ├── spec_to_rdl.py          # spec → .rdl (Path B)
 │   ├── spec_to_pbip.py         # spec → .pbip (Path B)
 │   ├── sql/                    # hand-authored SQL for ODBC reports
-│   │   └── 1042_Tax.sql
 │   └── templates/
 │       ├── MO_Report_Template.rdl  # RDL base template (logo source)
 │       └── specs/              # reference spec templates (not parsed by tool)

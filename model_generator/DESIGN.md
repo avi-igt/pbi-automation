@@ -1,4 +1,4 @@
-# pbi-model-generator — Design Document
+# pbi-automation / model_generator — Design Document
 
 ## Purpose
 

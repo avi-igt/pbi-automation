@@ -405,6 +405,10 @@ def generate_rdl(report: dict) -> str:
     )
 
     # ── User parameters (from FRD) ──────────────────────────────────────
+    # QueryParameters (@param syntax) are only valid for ODBC/SQL data sources.
+    # DAX queries on a Semantic Model do not support @param substitution — including
+    # QueryParameters for a DAX dataset causes "parameter not referred in query".
+    is_odbc = datasource_type in ("snowflake", "db2")
     user_rp_parts = []
     query_params_xml = ""
     qp_parts = []
@@ -412,7 +416,8 @@ def generate_rdl(report: dict) -> str:
         if "label" in p:
             rp, qp = make_parameter_xml(p)
             user_rp_parts.append(rp)
-            qp_parts.append(qp)
+            if is_odbc:
+                qp_parts.append(qp)
     if qp_parts:
         query_params_xml = (
             "        <QueryParameters>\n"
