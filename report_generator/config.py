@@ -54,9 +54,16 @@ class PbiConfig:
 
         # Datasource type detection — ordered list of (ds_type, [keywords])
         # e.g. [("snowflake", ["rdst", "tmir", ...]), ("db2", ["claims", ...])]
-        self._datasource_keywords: list[tuple[str, list[str]]] = (
-            self._parse_kw_section("datasource_keywords")
-        )
+        # The reserved key "default_datasource" is excluded from keyword matching
+        # and is used as the fallback when no keyword matches.
+        _VALID_DS = {"snowflake", "db2", "semantic_model"}
+        _raw_default = self._get("datasource_keywords", "default_datasource", "semantic_model").lower()
+        self._default_datasource: str = _raw_default if _raw_default in _VALID_DS else "semantic_model"
+        self._datasource_keywords: list[tuple[str, list[str]]] = [
+            (ds, kws)
+            for ds, kws in self._parse_kw_section("datasource_keywords")
+            if ds.lower() != "default_datasource"
+        ]
 
         # Semantic model selection — ordered list of (model_name, [keywords])
         # e.g. [("MO_LVMTransactional", ["lvm transaction", ...]), ...]
@@ -192,7 +199,7 @@ class PbiConfig:
         for ds_type, keywords in self._datasource_keywords:
             if any(kw in text for kw in keywords):
                 return ds_type
-        return "semantic_model"
+        return self._default_datasource
 
     def infer_semantic_model(self, report: dict) -> str:
         """Return the best-matching semantic model name for *report*.

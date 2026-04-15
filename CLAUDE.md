@@ -96,6 +96,7 @@ Path B (spec-first review workflow):
 workspace = Missouri - D1V1
 
 [datasource_keywords]
+default_datasource = semantic_model   # fallback when no keyword matches (snowflake|db2|semantic_model)
 snowflake = rdst, tmir, security, transaction
 db2 = claims, payments, annuities, debt
 
@@ -115,6 +116,30 @@ implementation = 2.0
 
 **Never hardcode** DSN names, workspace names, or dataset names — always read from
 `pbi.properties` via `report_generator/config.py`.
+
+### Data Source Detection Logic
+
+`infer_datasource()` (`config.py`) classifies each report in priority order:
+
+1. Scan `[datasource_keywords]` top-to-bottom — match against report `name + summary + notes` (case-insensitive). First match wins and returns that type (`snowflake` or `db2`).
+2. If no keyword matches, return `default_datasource` (defaults to `semantic_model` if not set).
+
+The `default_datasource` key in `[datasource_keywords]` controls the fallback:
+
+| Scenario | Setting |
+|---|---|
+| Mixed FRD (Snowflake + DB2 + semantic model reports) | `default_datasource = semantic_model` (default) |
+| All reports in the FRD are Snowflake SQL-based | `default_datasource = snowflake` |
+| All reports in the FRD are DB2-based | `default_datasource = db2` |
+
+**Example — TAC Data Examiner FRD** (all reports are Snowflake ODBC, but most names contain no detectable keywords):
+```ini
+[datasource_keywords]
+default_datasource = snowflake
+snowflake = RDST, TMIR, Security
+db2       = claim, payment, annuities, debt
+```
+Keyword rules still fire first — a report named "TMIR Report" still resolves to `snowflake` via keyword, not fallback. `default_datasource` only applies to reports that match nothing.
 
 ### FRD Parsing Notes
 

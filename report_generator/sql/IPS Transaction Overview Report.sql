@@ -1,0 +1,31 @@
+SELECT
+    prod.PRODUCT_NUMBER AS GAME_ID,
+    prod.PRODUCT_SHORT_DESC AS GAME_NAME,
+    to_currency_eur(prod.TICKET_VALUE) AS TICKET_PRICE,
+    loc.LOCATION_NUMBER AS LOCATION_NO,
+    CASE
+        WHEN fin.CLERK_KEY = 0 THEN TO_NUMBER(loc.LOCATION_NUMBER * 100)
+        ELSE fin.CLERK_KEY
+    END AS CLERK_ID,
+    loc.REGION_CODE AS REGIONAL_CENTER,
+    to_currency_eur(fin.AMOUNT) AS SALES_AMOUNT,
+    TO_CHAR(fin.TIME_INTERVAL,'DD.MM.YYYY hh:mm') AS TRANSACTION_TIME
+
+FROM
+    FINANCIAL.FINANCIAL_BASE fin
+    LEFT JOIN DIMCORE.PRODUCTS prod ON
+        fin.PRODUCT_KEY = prod.PRODUCT_KEY
+    LEFT JOIN DIMCORE.LOCATIONS Loc ON
+        fin.BILL_TO_LOCATION_KEY = loc.LOCATION_KEY
+
+WHERE
+    fin.PRODUCT_TYPE_CODE = 1 -- Instant
+    AND fin.ACT_TYPE_CODE in (1,76) -- (AT_SALESAMT, AT_TBT_SALESAMT)
+    AND fin.TIME_INTERVAL >= #StartDate+date# AND fin.TIME_INTERVAL <= #EndDate+date#
+    ?AND GAME_ID IN (#IPS_GameNo+number#)?
+    ?AND LOCATION_NO IN (#LocationNumber+number#)?
+    ?AND REGIONAL_CENTER IN (#RegionalCenter+string#)?
+
+ORDER BY
+    fin.TIME_INTERVAL
+-- Version: 1

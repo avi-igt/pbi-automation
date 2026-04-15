@@ -19,3 +19,8 @@ env/
 # IDE
 .vscode/
 .idea/
+
+# Presentation artifacts — keep locally, don't commit
+*.pptx
+_make_pptx.py
+cp_review_results.md
