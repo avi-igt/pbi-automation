@@ -286,36 +286,35 @@ def _m_query_fact(
 
     if filter_column:
         steps.append(
-            f"{S}#\"Filtered Rows\" = Table.SelectRows({prev}, "
+            f"{S}FilteredByDateRange = Table.SelectRows({prev}, "
             f"each [{filter_column}] >= RangeStart and [{filter_column}] < RangeEnd)"
         )
-        prev = "#\"Filtered Rows\""
+        prev = "FilteredByDateRange"
 
     for dim_spec in dim_specs:
         if not dim_spec.visible_cols:
             continue  # skip dimensions with no visible columns to expand
 
-        merge_step = f"Merged {dim_spec.table_name}"
-        expand_step = f"Expanded {dim_spec.table_name}"
+        merge_step = f"Merged{dim_spec.table_name.replace(' ', '')}"
+        expand_step = f"Expanded{dim_spec.table_name.replace(' ', '')}"
 
-        # M identifiers with spaces must be wrapped in #"..."
         dim_ref = f'#"{dim_spec.table_name}"' if " " in dim_spec.table_name else dim_spec.table_name
         steps.append(
-            f"{S}#\"{merge_step}\" = Table.NestedJoin({prev}, "
+            f"{S}{merge_step} = Table.NestedJoin({prev}, "
             f"{{\"{dim_spec.fact_key}\"}}, "
             f"{dim_ref}, "
             f"{{\"{dim_spec.dim_key}\"}}, "
             f"\"{dim_spec.table_name}\", JoinKind.LeftOuter)"
         )
-        prev = f"#\"{merge_step}\""
+        prev = merge_step
 
         src_cols = ", ".join(f"\"{c[0]}\"" for c in dim_spec.visible_cols)
         out_cols = ", ".join(f"\"{c[1]}\"" for c in dim_spec.visible_cols)
         steps.append(
-            f"{S}#\"{expand_step}\" = Table.ExpandTableColumn("
+            f"{S}{expand_step} = Table.ExpandTableColumn("
             f"{prev}, \"{dim_spec.table_name}\", {{{src_cols}}}, {{{out_cols}}})"
         )
-        prev = f"#\"{expand_step}\""
+        prev = expand_step
 
     steps_str = ",\n".join(steps)
 

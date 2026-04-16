@@ -1,6 +1,6 @@
 # Handbook Impact on pbi-automation
 
-Review of _Power BI Developer Handbook & Guide_ (Brightstar, 2026) against the pbi-automation toolchain.
+Review of _Power BI Architecture, Standards & Governance_ (Brightstar, 2026) against the pbi-automation toolchain.
 
 ---
 
@@ -9,16 +9,18 @@ Review of _Power BI Developer Handbook & Guide_ (Brightstar, 2026) against the p
 | Handbook Rule | pbi-automation Status |
 |---|---|
 | PBIP only (PBIX prohibited in Git) | `pbip_generator.py` generates PBIP folder structures only |
-| Paginated → Power BI Report Builder / RDL | `rdl_generator.py` generates RDL; keyword detection logic matches the handbook's tool selection decision tree exactly |
+| Semantic models in TMDL format | `model_generator` produces `.SemanticModel` TMDL folder pairs |
+| Paginated → Power BI Report Builder / RDL | `rdl_generator.py` generates RDL; keyword detection logic matches the handbook's tool selection decision tree |
 | Interactive/analytical → Power BI Desktop | `pbip_generator.py` binds via `definition.pbir` byPath to semantic model — Lane 1 compliant |
 | Snowflake ODBC approved only for Lane 3 (paginated) | `sfodbc_dsn` is used only in RDL generation; PBIP reports bind to semantic models, not ODBC |
 | DB2 ODBC approved for Lane 3 | `db2_dsn` is used only in RDL generation — correct |
+| Snowflake ADBC 2.0 native connector | `[snowflake_native]` section exists in `pbi.properties` with correct host and `implementation = 2.0`; `model_generator` embeds `Implementation = "2.0"` in every generated M query `Source` step |
 
 ---
 
 ## Gaps & Required Changes
 
-### 1. Semantic Model Names Will Break (Section 1.1)
+### 1. Semantic Model Names Will Break (Naming Conventions — Semantic Model Naming)
 
 The handbook mandates: **Title Case + mandatory postfix (LDI / RSM / RPT)**. Current `pbi.properties`:
 
@@ -37,60 +39,71 @@ When Fabric models are renamed to comply, the following will all break:
 
 ---
 
-### 2. No Native Snowflake Connector Config (Section 3.5.3)
+### 2. Power Query Applied Step Naming — ACTIVE (Power Query (M) Naming Standards)
 
-The handbook mandates ADBC 2.0 native connector for all Lane 1/2 (semantic model / interactive) workloads and explicitly deprecates ODBC for semantic models:
+The handbook requires verb-based PascalCase for applied steps (no spaces, no default names). The
+`model_generator` currently generates non-compliant step names in every fact table M query
+(`model_generator/tmdl_builder.py`, lines ~289, 298–299):
 
-> _ODBC usage is deprecated for semantic models and will be phased out in favour of native connectors._
-
-Specified connection:
-```
-Host:           igtgloballottery-igtpxv1_ldi.privatelink.snowflakecomputing.com
-Implementation: 2.0  (Arrow-based ADBC)
-```
-
-pbi-automation does not currently generate any direct Snowflake PBIP connections (all visual reports bind to semantic models), so there is no active violation. However, there is no config path for native connector usage if the requirement arises.
-
-**Action**: Add a `[snowflake_native]` section to `pbi.properties` now as a placeholder:
-
-```ini
-[snowflake_native]
-host           = igtgloballottery-igtpxv1_ldi.privatelink.snowflakecomputing.com
-implementation = 2.0
-```
-
-This keeps the connection detail out of generator code and in the config layer where it belongs.
-
----
-
-### 3. Branching Strategy Not Adopted (Section 6)
-
-The handbook defines:
-
-```
-main    → Production
-develop → Integration
-feature/<ticket>-description
-```
-
-pbi-automation currently commits everything directly to `main`.
-
-**Action**: Adopt `develop` as the integration branch. Use `feature/` branches for work items going forward.
-
----
-
-### 4. Power Query Naming (Future — Section 1.4)
-
-Not currently applicable. `pbip_generator.py` only generates semantic model bindings; it does not produce any Power Query / M code.
-
-If M query generation is added in future, the required conventions are:
-
-| Object | Convention | Example |
+| Generated step name | Handbook verdict | Required name |
 |---|---|---|
-| Source query | `_Src_<Source>_<Domain>`, hidden, load-disabled | `_Src_Snowflake_Sales` |
-| Staging / helper | `_Stg<Domain>`, hidden, load-disabled | `_StgSales` |
-| Applied step | Verb-based PascalCase | `FilteredActiveRows` |
-| Folding break | `NonFoldable_<Description>` (requires PR justification) | `NonFoldable_Pivot` |
+| `#"Filtered Rows"` | "Avoid" — default Power BI name | `FilteredByDateRange` or similar |
+| `#"Merged Dates"` | Quoted identifier (space) — not PascalCase | `MergedDates` |
+| `#"Expanded Dates"` | Quoted identifier (space) — not PascalCase | `ExpandedDates` |
+
+The `Source`, `DB`, `Schema`, `FactTable` step names are implementation-internal and acceptable as
+they are not user-visible in the fields pane.
+
+**Action**: Update `tmdl_builder.py` to generate compliant step names:
+- `"Filtered Rows"` → `f"FilteredByDateRange"` (or the actual column name, e.g. `f"FilteredBy{filter_column.title().replace('_', '')}"`)
+- `f"Merged {dim_spec.table_name}"` → `f"Merged{dim_spec.table_name.replace(' ', '')}"` (PascalCase, no spaces)
+- `f"Expanded {dim_spec.table_name}"` → `f"Expanded{dim_spec.table_name.replace(' ', '')}"` (PascalCase, no spaces)
+
+This is a code change, not a config change. Low risk; no output format change, only step labels.
+
+---
+
+### 3. Paginated Report Deployment Workflow (Version Control & CI/CD — Paginated Reports)
+
+The handbook introduces an explicit sequencing constraint not previously documented:
+
+> _"Publish/upload the paginated report to the service and then use git. Paginated reports don't render if you start with the files in git."_
+
+Additional constraints:
+- **Deleting**: Delete the entire report folder from git — not just the `.rdl` file.
+- **Renaming**: Cannot rename an `.rdl` in git. Must delete the folder and recreate it with the new name.
+
+`report_generator` writes `.rdl` files to `output/rdl/`. These are then manually copied into
+`lpc-v1-app-ldi-pbi-mos`. The workflow must be:
+
+```
+report_generator → output/rdl/  →  publish to Power BI Service  →  then commit to lpc-v1-app-ldi-pbi-mos
+```
+
+**Action**: Update the deployment section of the README / deployment runbook for
+`lpc-v1-app-ldi-pbi-mos` to make this order explicit. No code changes needed in pbi-automation.
+
+---
+
+### 4. Branching Strategy Not Adopted (Version Control & CI/CD — Branching Strategy)
+
+The handbook defines a single-repo, multi-site branching model:
+
+```
+lpc-v1-app-ldi-pbi  (single repo, all sites)
+  lpcv1-develop           ← product base branch
+    lpcv1xx-develop-yyyy.mm  ← delivery cycle branches off product base
+  sssv1-develop           ← per-site main (e.g. mosv1-develop)
+    sssv1xx-develop-MM.mm    ← per-site delivery cycle branches
+```
+
+pbi-automation currently commits everything directly to `main`. The deployment target
+(`lpc-v1-app-ldi-pbi-mos`) is the repo that must adopt this structure; pbi-automation itself is a
+generation tool and its branching is separate.
+
+**Action**: Adopt `develop` as the integration branch in `lpc-v1-app-ldi-pbi-mos`. Use delivery
+cycle branches (`mosv1xx-develop-yyyy.mm`) going forward. For pbi-automation itself, consider
+whether `develop` branching is warranted given it is a tooling repo.
 
 ---
 
@@ -98,9 +111,10 @@ If M query generation is added in future, the required conventions are:
 
 | Priority | Action |
 |---|---|
-| High | Confirm model rename timeline with architect; ensure `pbi.properties` is the only change point when Fabric model names change |
-| Medium | Add `[snowflake_native]` section to `pbi.properties` (future-proofing for native ADBC connector) |
-| Low | Adopt `develop` branching strategy |
-| Future | Apply Power Query naming conventions if M query generation is added |
+| High | Confirm model rename timeline with architect; `pbi.properties` is the only change point when Fabric model names change |
+| High | Fix Power Query applied step naming in `model_generator/tmdl_builder.py` — `#"Filtered Rows"`, `#"Merged X"`, `#"Expanded X"` are non-compliant |
+| Medium | Document paginated report deployment order in lpc-v1-app-ldi-pbi-mos deployment runbook: publish to service first, then git |
+| Low | Adopt `develop` branching strategy in `lpc-v1-app-ldi-pbi-mos` |
 
-The tool's architectural approach is sound. The primary risk is a Fabric model rename cascading through `pbi.properties` if it is not tracked carefully.
+The tool's architectural approach remains sound. Snowflake ADBC 2.0 compliance (previous Gap 2) is
+resolved. The primary active code gap is Power Query step naming in `model_generator`.
