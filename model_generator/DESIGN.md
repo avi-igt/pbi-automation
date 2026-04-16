@@ -132,7 +132,7 @@ dimensions   = dates, products, locations, terminals
 [model.draw_sales]
 display_name  = Draw Sales LDI
 fact_table    = DRAW.DRAW_SALES
-dimensions    = dates, products, locations
+dimensions    = dates, products, locations, draw_information
 filter_column = BUSINESS_TIMESTAMP    # optional — adds RangeStart/RangeEnd incremental refresh params
 ```
 
@@ -203,10 +203,10 @@ flat column list.
 ```
 Fact M query:
   Source → DB → Schema → FactTable
-    → [Optional] Filtered Rows          (if filter_column is set)
-    → Merged Dates  → Expanded Dates
-    → Merged Products → Expanded Products
-    → Merged Locations → Expanded Locations
+    → [Optional] FilteredByDateRange     (if filter_column is set)
+    → MergedDates  → ExpandedDates
+    → MergedProducts → ExpandedProducts
+    → MergedLocations → ExpandedLocations
     → ...
 ```
 
@@ -378,7 +378,7 @@ values. Running without `--env` uses the base `[snowflake]` section.
 
 ## Handbook Compliance
 
-All generated artifacts comply with the Power BI Developer Handbook & Guide:
+All generated artifacts comply with the Power BI Architecture, Standards & Governance handbook:
 
 | Handbook rule | How enforced |
 |---|---|
