@@ -11,7 +11,7 @@
 
 **Two Power BI automation tools for Brightstar Lottery — one repo.**
 
-[Quick Start](#quick-start) · [Pipeline](#pipeline) · [report-generator](#report-generator) · [model-generator](#model-generator) · [Full Lifecycle](#full-development-lifecycle) · [report_generator — How To](#report_generator--how-to) · [model_generator — How To](#model_generator--how-to) · [Utilities](#utilities) · [Repository Structure](#repository-structure) · [Troubleshooting](#troubleshooting)
+[Quick Start](#quick-start) · [Pipeline](#pipeline) · [report-generator](#report-generator) · [model-generator](#model-generator) · [Full Lifecycle](#full-development-lifecycle) · [report_generator — How To](#report_generator--how-to) · [model_generator — How To](#model_generator--how-to) · [Utilities](#utilities) · [Repository Structure](#repository-structure) · [Troubleshooting](#troubleshooting) · [Command Reference](command_reference.md)
 
 </div>
 
