@@ -9,9 +9,9 @@
 [![Power BI](https://img.shields.io/badge/Power%20BI-Fabric-F2C811?style=flat-square&logo=powerbi&logoColor=black)](https://app.powerbi.com)
 [![Snowflake](https://img.shields.io/badge/Snowflake-connected-29B5E8?style=flat-square&logo=snowflake&logoColor=white)](https://www.snowflake.com/)
 
-**Two Power BI automation tools for Brightstar Lottery — one repo.**
+**Three Power BI automation tools for Brightstar Lottery — one repo.**
 
-[Quick Start](#quick-start) · [Pipeline](#pipeline) · [report-generator](#report-generator) · [model-generator](#model-generator) · [Full Lifecycle](#full-development-lifecycle) · [report_generator — How To](#report_generator--how-to) · [model_generator — How To](#model_generator--how-to) · [Utilities](#utilities) · [Repository Structure](#repository-structure) · [Troubleshooting](#troubleshooting) · [Command Reference](command_reference.md)
+[Quick Start](#quick-start) · [Pipeline](#pipeline) · [report-generator](#report-generator) · [model-generator](#model-generator) · [bo-converter](#bo-converter) · [Full Lifecycle](#full-development-lifecycle) · [report_generator — How To](#report_generator--how-to) · [model_generator — How To](#model_generator--how-to) · [Utilities](#utilities) · [Repository Structure](#repository-structure) · [Troubleshooting](#troubleshooting) · [Command Reference](command_reference.md)
 
 </div>
 
@@ -23,8 +23,9 @@
 |---|---|---|
 | **report-generator** | `generate_reports.py` | FRD `.docx` → `.rdl` paginated reports + `.pbip` visual reports + `.md` spec docs |
 | **model-generator** | `generate_models.py` | `semantic.properties` → `.SemanticModel` + `.Report` folder pairs (TMDL, Snowflake-backed) |
+| **bo-converter** | `convert_bo_reports.py` | SAP BusinessObjects WebI → `.md` spec files for Path B (`spec_to_rdl.py`) |
 
-Both tools share a single repo, a single `requirements.txt`, and common `templates/` + `output/` directories. They are otherwise independent — each has its own config file and entry point.
+All three tools share a single repo, a single `requirements.txt`, and common `templates/` + `output/` directories. They are otherwise independent — each has its own config file and entry point.
 
 ---
 
@@ -52,6 +53,24 @@ python generate_models.py --list
 # Generate all models (requires Snowflake credentials — see Authentication below)
 export SNOWFLAKE_USER=your.name@ourlotto.com
 python generate_models.py
+```
+
+### bo-converter
+
+```bash
+# Extract BO WebI metadata → JSON checkpoint
+export BO_PASSWORD=...
+python convert_bo_reports.py --only extract
+
+# Generate .md spec files from JSON
+python convert_bo_reports.py --only specs
+
+# Full pipeline (extract + specs)
+python convert_bo_reports.py
+
+# Filter by folder or report name
+python convert_bo_reports.py --folder "Sales Reports"
+python convert_bo_reports.py --report "Daily Sales"
 ```
 
 ---
@@ -328,6 +347,44 @@ Both folders must be deployed together to `lpc-v1-app-ldi-pbi-mos`.
 1. Copy `output/models/<Name>.SemanticModel/` and `output/models/<Name>.Report/` to `lpc-v1-app-ldi-pbi-mos`
 2. Run ALM Toolkit diff
 3. Open a PR with `MOSC-####` commit
+
+---
+
+## bo-converter
+
+Extracts SAP BusinessObjects WebI report metadata via the BO REST API and generates Power BI `.md` spec files for the existing Path B workflow (`spec_to_rdl.py`).
+
+### Configuration
+
+Add a `[bo]` section to `pbi.properties`:
+
+```ini
+[bo]
+host = http://10.17.56.65:8080/biprws
+username = your.name@ourlotto.com
+```
+
+Set `BO_PASSWORD` as an environment variable (never in config).
+
+### Pipeline
+
+```
+BO REST API
+    ↓  Phase 1 (--only extract)
+  bo_extractor.py  →  output/bo-extracted/bo_extracted.json
+    ↓  Phase 2 (--only specs)
+  bo_spec_generator.py  →  output/bo-specs/*.md
+    ↓  (existing Path B)
+  spec_to_rdl.py  →  output/from-spec/rdl/*.rdl
+```
+
+### Workflow
+
+1. `python convert_bo_reports.py --only extract` — Pull metadata from BO
+2. Inspect `output/bo-extracted/bo_extracted.json` — Sanity check
+3. `python convert_bo_reports.py --only specs` — Generate .md spec files
+4. Edit `output/bo-specs/*.md` — Human review, fill in SQL, confirm models
+5. `python report_generator/spec_to_rdl.py output/bo-specs/` — Generate .rdl files via Path B
 
 ---
 
