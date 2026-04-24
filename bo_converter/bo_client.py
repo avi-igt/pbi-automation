@@ -152,10 +152,14 @@ class BoClient:
             self._folder_path_cache[folder_id] = folder_id
             return folder_id
         name = data.get("name", folder_id)
+        # BO CMC shows "Root Folder" as "Public Folder" in the UI
+        if name == "Root Folder":
+            name = "Public Folder"
         parent_uri = data.get("up", {}).get("__deferred", {}).get("uri", "")
         if parent_uri:
             parent_id = unquote(parent_uri.rstrip("/").split("/")[-1])
-            if parent_id and parent_id != folder_id and parent_id not in ("Root Folder",):
+            # Stop walking at /infostore (the CMS root above Root Folder)
+            if parent_id and parent_id != folder_id and parent_id != "infostore":
                 parent_path = self._resolve_folder_path(parent_id)
                 path = f"{parent_path}/{name}"
             else:

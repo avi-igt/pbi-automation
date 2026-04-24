@@ -9,6 +9,7 @@ from tests.bo_converter.conftest import (
     DOCUMENT_DATAPROVIDERS,
     DATAPROVIDER_DETAIL,
     DATAPROVIDER_QUERYPLAN,
+    ROOT_FOLDER,
     FOLDER_50,
 )
 
@@ -94,7 +95,8 @@ class TestExtractReport:
         session.post.return_value = resp_logon
 
         session.get.side_effect = [
-            _make_resp(FOLDER_50),              # resolve folder
+            _make_resp(FOLDER_50),              # resolve folder path: folder 50
+            _make_resp(ROOT_FOLDER),            # resolve folder path: parent 23
             _make_resp(DOCUMENT_PARAMETERS),    # parameters
             _make_resp(DOCUMENT_DATAPROVIDERS), # dataproviders list
             _make_resp(DATAPROVIDER_DETAIL),    # DP0 detail
@@ -139,7 +141,7 @@ class TestExtractReport:
                 report = client.extract_report(doc)
 
             assert report["folder"] == "Sales Reports"
-            assert report["folder_path"] == "Sales Reports"
-            assert report["legacy_reports"] == "Sales Reports\\Test"
+            assert report["folder_path"] == "Public Folder/Sales Reports"
+            assert report["legacy_reports"] == "Public Folder/Sales Reports\\Test"
             assert report["name"] == "Test"
             assert report["report_format"] == "Paginated"

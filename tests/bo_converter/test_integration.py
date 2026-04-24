@@ -10,6 +10,7 @@ from bo_converter.bo_spec_generator import generate_specs_from_json
 from tests.bo_converter.conftest import (
     LOGON_RESPONSE,
     DOCUMENTS_LIST,
+    ROOT_FOLDER,
     FOLDER_50,
     FOLDER_51,
     DOCUMENT_PARAMETERS,
@@ -32,12 +33,13 @@ def _mock_get_responses():
     """
     return [
         _make_resp(DOCUMENTS_LIST),         # enumerate
-        _make_resp(FOLDER_50),              # doc 100 folder resolve
+        _make_resp(FOLDER_50),              # doc 100 folder path: folder 50
+        _make_resp(ROOT_FOLDER),            # doc 100 folder path: parent (root)
         _make_resp(DOCUMENT_PARAMETERS),    # doc 100 params
         _make_resp(DOCUMENT_DATAPROVIDERS), # doc 100 dataproviders list
         _make_resp(DATAPROVIDER_DETAIL),    # doc 100 DP0 detail
         _make_resp(DATAPROVIDER_QUERYPLAN), # doc 100 DP0 queryplan
-        _make_resp(FOLDER_51),              # doc 101 folder resolve
+        _make_resp(FOLDER_51),              # doc 101 folder path: folder 51 (root cached)
         _make_resp(DOCUMENT_PARAMETERS),    # doc 101 params
         _make_resp(DOCUMENT_DATAPROVIDERS), # doc 101 dataproviders list
         _make_resp(DATAPROVIDER_DETAIL),    # doc 101 DP0 detail

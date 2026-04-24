@@ -9,6 +9,7 @@ from bo_converter.config import BoConfig
 from tests.bo_converter.conftest import (
     LOGON_RESPONSE,
     DOCUMENTS_LIST,
+    ROOT_FOLDER,
     FOLDER_50,
     FOLDER_51,
     DOCUMENT_PARAMETERS,
@@ -31,12 +32,13 @@ def _mock_get_responses():
     """
     return [
         _make_resp(DOCUMENTS_LIST),         # enumerate
-        _make_resp(FOLDER_50),              # doc 100 folder resolve
+        _make_resp(FOLDER_50),              # doc 100 folder path: folder 50
+        _make_resp(ROOT_FOLDER),            # doc 100 folder path: parent 23
         _make_resp(DOCUMENT_PARAMETERS),    # doc 100 params
         _make_resp(DOCUMENT_DATAPROVIDERS), # doc 100 dataproviders list
         _make_resp(DATAPROVIDER_DETAIL),    # doc 100 DP0 detail
         _make_resp(DATAPROVIDER_QUERYPLAN), # doc 100 DP0 queryplan
-        _make_resp(FOLDER_51),              # doc 101 folder resolve
+        _make_resp(FOLDER_51),              # doc 101 folder path: folder 51 (root cached)
         _make_resp(DOCUMENT_PARAMETERS),    # doc 101 params
         _make_resp(DOCUMENT_DATAPROVIDERS), # doc 101 dataproviders list
         _make_resp(DATAPROVIDER_DETAIL),    # doc 101 DP0 detail
@@ -81,8 +83,9 @@ def test_extract_all_with_folder_filter(bo_config, tmp_path):
         # Sequence: enumerate → folder50 → folder51 (filter) → params + dp_list + dp_detail (doc 100 only)
         session.get.side_effect = [
             _make_resp(DOCUMENTS_LIST),         # enumerate
-            _make_resp(FOLDER_50),              # resolve folder 50 for filter
-            _make_resp(FOLDER_51),              # resolve folder 51 for filter
+            _make_resp(FOLDER_50),              # filter: folder 50 path walk
+            _make_resp(ROOT_FOLDER),            # filter: folder 50 parent (root)
+            _make_resp(FOLDER_51),              # filter: folder 51 path walk (root cached)
             _make_resp(DOCUMENT_PARAMETERS),    # doc 100 params (only Sales Reports match)
             _make_resp(DOCUMENT_DATAPROVIDERS), # doc 100 dataproviders list
             _make_resp(DATAPROVIDER_DETAIL),    # doc 100 DP0 detail
@@ -109,7 +112,8 @@ def test_extract_all_with_report_filter(bo_config, tmp_path):
         # Only doc 101 ("RDST Summary") matches.
         session.get.side_effect = [
             _make_resp(DOCUMENTS_LIST),         # enumerate
-            _make_resp(FOLDER_51),              # doc 101 folder resolve
+            _make_resp(FOLDER_51),              # doc 101 folder path: folder 51
+            _make_resp(ROOT_FOLDER),            # doc 101 folder path: parent (root)
             _make_resp(DOCUMENT_PARAMETERS),    # doc 101 params
             _make_resp(DOCUMENT_DATAPROVIDERS), # doc 101 dataproviders list
             _make_resp(DATAPROVIDER_DETAIL),    # doc 101 DP0 detail
@@ -138,7 +142,8 @@ def test_extract_all_records_errors(bo_config, tmp_path):
             # doc 100: folder resolve fails with exception
             MagicMock(status_code=200, json=MagicMock(side_effect=Exception("parse error"))),
             # doc 101: successful extraction
-            _make_resp(FOLDER_51),              # folder resolve
+            _make_resp(FOLDER_51),              # folder path: folder 51
+            _make_resp(ROOT_FOLDER),            # folder path: parent (root)
             _make_resp(DOCUMENT_PARAMETERS),    # params
             _make_resp(DOCUMENT_DATAPROVIDERS), # dataproviders list
             _make_resp(DATAPROVIDER_DETAIL),    # DP0 detail

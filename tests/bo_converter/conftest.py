@@ -50,13 +50,17 @@ DOCUMENTS_LIST = {
     }
 }
 
+ROOT_FOLDER = {
+    "id": "23", "name": "Root Folder", "type": "Folder",
+    "up": {"__deferred": {"uri": "http://localhost:8080/biprws/infostore"}},
+}
 FOLDER_50 = {
     "id": "50", "name": "Sales Reports", "type": "Folder",
-    "up": {"__deferred": {"uri": "http://localhost:8080/biprws/infostore/Root%20Folder"}},
+    "up": {"__deferred": {"uri": "http://localhost:8080/biprws/infostore/23"}},
 }
 FOLDER_51 = {
     "id": "51", "name": "Data Reports", "type": "Folder",
-    "up": {"__deferred": {"uri": "http://localhost:8080/biprws/infostore/Root%20Folder"}},
+    "up": {"__deferred": {"uri": "http://localhost:8080/biprws/infostore/23"}},
 }
 
 DOCUMENT_PARAMETERS = {
