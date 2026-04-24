@@ -6,12 +6,15 @@ extraction via the BO RESTful Web Service (biprws).
 
 import logging
 import time
+from urllib.parse import unquote
 
 import requests
 
 from bo_converter.config import BoConfig
 
 log = logging.getLogger(__name__)
+
+_PAGE_SIZE = 50
 
 
 def _as_list(val):
@@ -31,6 +34,7 @@ class BoClient:
             "Content-Type": "application/json",
         })
         self._folder_cache: dict[str, str] = {}
+        self._folder_path_cache: dict[str, str] = {}
 
     def __enter__(self):
         self.logon()
@@ -64,13 +68,23 @@ class BoClient:
             log.warning("Logoff failed: %s", e)
 
     def enumerate_webi_documents(self) -> list[dict]:
-        url = f"{self._cfg.host}/raylight/v1/documents"
-        resp = self._session.get(url)
-        resp.raise_for_status()
-        data = resp.json()
-        docs = _as_list(data.get("documents", {}).get("document", []))
-        log.info("Enumerated %d WebI documents", len(docs))
-        return docs
+        all_docs: list[dict] = []
+        offset = 0
+        while True:
+            url = f"{self._cfg.host}/raylight/v1/documents?offset={offset}&limit={_PAGE_SIZE}"
+            resp = self._session.get(url)
+            resp.raise_for_status()
+            data = resp.json()
+            page = _as_list(data.get("documents", {}).get("document", []))
+            page = [d for d in page if d.get("id")]
+            if not page:
+                break
+            all_docs.extend(page)
+            if len(page) < _PAGE_SIZE:
+                break
+            offset += _PAGE_SIZE
+        log.info("Enumerated %d WebI documents", len(all_docs))
+        return all_docs
 
     def extract_report(self, doc: dict) -> dict:
         doc_id = doc["id"]
@@ -78,6 +92,7 @@ class BoClient:
         description = doc.get("description", "")
         folder_id = str(doc.get("folderId", ""))
 
+        folder_path = self._resolve_folder_path(folder_id)
         folder_name = self._resolve_folder(folder_id)
 
         parameters = self._extract_parameters(doc_id)
@@ -86,9 +101,10 @@ class BoClient:
 
         report = {
             "folder": folder_name,
+            "folder_path": folder_path,
             "name": name,
             "report_format": "Paginated",
-            "legacy_reports": f"{folder_name}\\{name}",
+            "legacy_reports": f"{folder_path}\\{name}",
             "legacy_users": "",
             "summary": description,
             "sort": "N/A",
@@ -109,21 +125,54 @@ class BoClient:
         folder_id = str(doc_or_id.get("folderId", "")) if isinstance(doc_or_id, dict) else str(doc_or_id)
         return self._resolve_folder(folder_id)
 
+    def resolve_folder_path(self, doc_or_id) -> str:
+        folder_id = str(doc_or_id.get("folderId", "")) if isinstance(doc_or_id, dict) else str(doc_or_id)
+        return self._resolve_folder_path(folder_id)
+
     def _resolve_folder(self, folder_id: str) -> str:
         if not folder_id:
             return ""
         if folder_id in self._folder_cache:
             return self._folder_cache[folder_id]
+        data = self._fetch_folder(folder_id)
+        if data is None:
+            self._folder_cache[folder_id] = folder_id
+            return folder_id
+        name = data.get("name", folder_id)
+        self._folder_cache[folder_id] = name
+        return name
+
+    def _resolve_folder_path(self, folder_id: str) -> str:
+        if not folder_id:
+            return ""
+        if folder_id in self._folder_path_cache:
+            return self._folder_path_cache[folder_id]
+        data = self._fetch_folder(folder_id)
+        if data is None:
+            self._folder_path_cache[folder_id] = folder_id
+            return folder_id
+        name = data.get("name", folder_id)
+        parent_uri = data.get("up", {}).get("__deferred", {}).get("uri", "")
+        if parent_uri:
+            parent_id = unquote(parent_uri.rstrip("/").split("/")[-1])
+            if parent_id and parent_id != folder_id and parent_id not in ("Root Folder",):
+                parent_path = self._resolve_folder_path(parent_id)
+                path = f"{parent_path}/{name}"
+            else:
+                path = name
+        else:
+            path = name
+        self._folder_path_cache[folder_id] = path
+        self._folder_cache[folder_id] = name
+        return path
+
+    def _fetch_folder(self, folder_id: str) -> dict | None:
         url = f"{self._cfg.host}/infostore/{folder_id}"
         resp = self._session.get(url)
         if resp.status_code != 200:
             log.warning("Failed to resolve folder %s: %s", folder_id, resp.status_code)
-            self._folder_cache[folder_id] = folder_id
-            return folder_id
-        data = resp.json()
-        name = data.get("name", folder_id)
-        self._folder_cache[folder_id] = name
-        return name
+            return None
+        return resp.json()
 
     def _extract_parameters(self, doc_id) -> list[dict]:
         url = f"{self._cfg.host}/raylight/v1/documents/{doc_id}/parameters"

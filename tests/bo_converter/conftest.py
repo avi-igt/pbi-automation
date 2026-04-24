@@ -50,8 +50,14 @@ DOCUMENTS_LIST = {
     }
 }
 
-FOLDER_50 = {"id": "50", "name": "Sales Reports", "type": "Folder"}
-FOLDER_51 = {"id": "51", "name": "Data Reports", "type": "Folder"}
+FOLDER_50 = {
+    "id": "50", "name": "Sales Reports", "type": "Folder",
+    "up": {"__deferred": {"uri": "http://localhost:8080/biprws/infostore/Root%20Folder"}},
+}
+FOLDER_51 = {
+    "id": "51", "name": "Data Reports", "type": "Folder",
+    "up": {"__deferred": {"uri": "http://localhost:8080/biprws/infostore/Root%20Folder"}},
+}
 
 DOCUMENT_PARAMETERS = {
     "parameters": {

@@ -31,7 +31,7 @@ def extract_all(
         if folder_filter:
             docs = [
                 d for d in docs
-                if folder_filter.lower() in client.resolve_folder(d).lower()
+                if folder_filter.lower() in client.resolve_folder_path(d).lower()
             ]
 
         if report_filter:

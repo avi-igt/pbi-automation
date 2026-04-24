@@ -137,6 +137,7 @@ class TestExtractReport:
                 report = client.extract_report(doc)
 
             assert report["folder"] == "Sales Reports"
+            assert report["folder_path"] == "Sales Reports"
             assert report["legacy_reports"] == "Sales Reports\\Test"
             assert report["name"] == "Test"
             assert report["report_format"] == "Paginated"
