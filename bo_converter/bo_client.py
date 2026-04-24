@@ -209,12 +209,15 @@ class BoClient:
         for dp in raw_dp:
             dp_id = dp.get("id", "")
             detail = self._get_dataprovider_detail(doc_id, dp_id)
+            qp = self._get_queryplan(doc_id, dp_id)
             providers.append({
                 "id": dp_id,
                 "name": dp.get("name", ""),
                 "dataSourceName": detail.get("dataSourceName", ""),
                 "dataSourceType": dp.get("dataSourceType", ""),
                 "columns": detail.get("columns", []),
+                "sql": qp["sql"],
+                "custom_sql": qp["custom"],
             })
         return providers
 
@@ -236,6 +239,23 @@ class BoClient:
             for e in exprs
         ]
         return {"dataSourceName": ds_name, "columns": columns}
+
+    def _get_queryplan(self, doc_id, dp_id: str) -> dict:
+        url = f"{self._cfg.host}/raylight/v1/documents/{doc_id}/dataproviders/{dp_id}/queryplan"
+        resp = self._session.get(url)
+        if resp.status_code != 200:
+            return {"sql": "", "custom": False}
+        data = resp.json()
+        qp = data.get("queryplan", {})
+        custom = qp.get("@custom", "false") == "true"
+        stmt = qp.get("statement", {})
+        if isinstance(stmt, dict):
+            sql = stmt.get("$", "")
+        elif isinstance(stmt, list):
+            sql = "\n\n".join(s.get("$", "") for s in stmt if s.get("$"))
+        else:
+            sql = ""
+        return {"sql": sql, "custom": custom}
 
     def _extract_layout(self, doc_id, dataproviders: list[dict]) -> dict:
         layout = {}

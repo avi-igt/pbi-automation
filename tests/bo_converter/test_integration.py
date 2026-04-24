@@ -15,6 +15,7 @@ from tests.bo_converter.conftest import (
     DOCUMENT_PARAMETERS,
     DOCUMENT_DATAPROVIDERS,
     DATAPROVIDER_DETAIL,
+    DATAPROVIDER_QUERYPLAN,
 )
 
 
@@ -35,10 +36,12 @@ def _mock_get_responses():
         _make_resp(DOCUMENT_PARAMETERS),    # doc 100 params
         _make_resp(DOCUMENT_DATAPROVIDERS), # doc 100 dataproviders list
         _make_resp(DATAPROVIDER_DETAIL),    # doc 100 DP0 detail
+        _make_resp(DATAPROVIDER_QUERYPLAN), # doc 100 DP0 queryplan
         _make_resp(FOLDER_51),              # doc 101 folder resolve
         _make_resp(DOCUMENT_PARAMETERS),    # doc 101 params
         _make_resp(DOCUMENT_DATAPROVIDERS), # doc 101 dataproviders list
         _make_resp(DATAPROVIDER_DETAIL),    # doc 101 DP0 detail
+        _make_resp(DATAPROVIDER_QUERYPLAN), # doc 101 DP0 queryplan
     ]
 
 

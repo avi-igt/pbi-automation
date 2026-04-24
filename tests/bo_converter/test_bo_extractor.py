@@ -14,6 +14,7 @@ from tests.bo_converter.conftest import (
     DOCUMENT_PARAMETERS,
     DOCUMENT_DATAPROVIDERS,
     DATAPROVIDER_DETAIL,
+    DATAPROVIDER_QUERYPLAN,
 )
 
 
@@ -34,10 +35,12 @@ def _mock_get_responses():
         _make_resp(DOCUMENT_PARAMETERS),    # doc 100 params
         _make_resp(DOCUMENT_DATAPROVIDERS), # doc 100 dataproviders list
         _make_resp(DATAPROVIDER_DETAIL),    # doc 100 DP0 detail
+        _make_resp(DATAPROVIDER_QUERYPLAN), # doc 100 DP0 queryplan
         _make_resp(FOLDER_51),              # doc 101 folder resolve
         _make_resp(DOCUMENT_PARAMETERS),    # doc 101 params
         _make_resp(DOCUMENT_DATAPROVIDERS), # doc 101 dataproviders list
         _make_resp(DATAPROVIDER_DETAIL),    # doc 101 DP0 detail
+        _make_resp(DATAPROVIDER_QUERYPLAN), # doc 101 DP0 queryplan
     ]
 
 
@@ -83,6 +86,7 @@ def test_extract_all_with_folder_filter(bo_config, tmp_path):
             _make_resp(DOCUMENT_PARAMETERS),    # doc 100 params (only Sales Reports match)
             _make_resp(DOCUMENT_DATAPROVIDERS), # doc 100 dataproviders list
             _make_resp(DATAPROVIDER_DETAIL),    # doc 100 DP0 detail
+            _make_resp(DATAPROVIDER_QUERYPLAN), # doc 100 DP0 queryplan
         ]
 
         result = extract_all(bo_config, output_dir=output_dir, folder_filter="Sales")
@@ -109,6 +113,7 @@ def test_extract_all_with_report_filter(bo_config, tmp_path):
             _make_resp(DOCUMENT_PARAMETERS),    # doc 101 params
             _make_resp(DOCUMENT_DATAPROVIDERS), # doc 101 dataproviders list
             _make_resp(DATAPROVIDER_DETAIL),    # doc 101 DP0 detail
+            _make_resp(DATAPROVIDER_QUERYPLAN), # doc 101 DP0 queryplan
         ]
 
         result = extract_all(bo_config, output_dir=output_dir, report_filter="RDST")
@@ -137,6 +142,7 @@ def test_extract_all_records_errors(bo_config, tmp_path):
             _make_resp(DOCUMENT_PARAMETERS),    # params
             _make_resp(DOCUMENT_DATAPROVIDERS), # dataproviders list
             _make_resp(DATAPROVIDER_DETAIL),    # DP0 detail
+            _make_resp(DATAPROVIDER_QUERYPLAN), # DP0 queryplan
         ]
 
         result = extract_all(bo_config, output_dir=output_dir)

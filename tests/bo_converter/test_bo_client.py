@@ -8,6 +8,7 @@ from tests.bo_converter.conftest import (
     DOCUMENT_PARAMETERS,
     DOCUMENT_DATAPROVIDERS,
     DATAPROVIDER_DETAIL,
+    DATAPROVIDER_QUERYPLAN,
     FOLDER_50,
 )
 
@@ -93,10 +94,11 @@ class TestExtractReport:
         session.post.return_value = resp_logon
 
         session.get.side_effect = [
-            _make_resp(FOLDER_50),             # resolve folder
-            _make_resp(DOCUMENT_PARAMETERS),   # parameters
-            _make_resp(DOCUMENT_DATAPROVIDERS),# dataproviders list
-            _make_resp(DATAPROVIDER_DETAIL),   # DP0 detail
+            _make_resp(FOLDER_50),              # resolve folder
+            _make_resp(DOCUMENT_PARAMETERS),    # parameters
+            _make_resp(DOCUMENT_DATAPROVIDERS), # dataproviders list
+            _make_resp(DATAPROVIDER_DETAIL),    # DP0 detail
+            _make_resp(DATAPROVIDER_QUERYPLAN), # DP0 queryplan
         ]
         return session
 
