@@ -6,7 +6,6 @@ extraction via the BO RESTful Web Service (biprws).
 
 import logging
 import time
-from typing import Any
 
 import requests
 

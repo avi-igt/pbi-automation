@@ -9,6 +9,7 @@ def bo_config(tmp_path, monkeypatch):
         "[bo]\n"
         "host = http://localhost:8080/biprws\n"
         "username = admin\n"
+        "request_delay = 0\n"
         "\n"
         "[datasource_keywords]\n"
         "default_datasource = semantic_model\n"

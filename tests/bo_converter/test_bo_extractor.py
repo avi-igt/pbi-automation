@@ -91,3 +91,38 @@ def test_extract_all_with_report_filter(bo_config, tmp_path):
     data = json.loads((output_dir / "bo-extracted" / "bo_extracted.json").read_text())
     assert data["extracted_count"] == 1
     assert data["reports"][0]["name"] == "RDST Summary"
+
+
+def test_extract_all_records_errors(bo_config, tmp_path):
+    output_dir = tmp_path / "output"
+    with patch("bo_converter.bo_client.requests.Session") as MockSession:
+        session = MockSession.return_value
+        session.headers = {}
+        resp_logon = MagicMock(status_code=200)
+        resp_logon.json.return_value = LOGON_RESPONSE
+        session.post.return_value = resp_logon
+        session.delete.return_value = MagicMock(status_code=200)
+
+        resp_enum = MagicMock(status_code=200)
+        resp_enum.json.return_value = INFOSTORE_PAGE1
+
+        def make_resp(data, status=200):
+            r = MagicMock(status_code=status)
+            r.json.return_value = data
+            return r
+
+        session.get.side_effect = [
+            resp_enum,
+            MagicMock(status_code=200, json=MagicMock(side_effect=Exception("parse error"))),
+            make_resp(DOCUMENT_PARAMETERS),
+            make_resp(DOCUMENT_DATAPROVIDERS),
+            make_resp(DOCUMENT_REPORTS),
+            make_resp(DOCUMENT_ELEMENTS),
+        ]
+
+        result = extract_all(bo_config, output_dir=output_dir)
+
+    data = json.loads((output_dir / "bo-extracted" / "bo_extracted.json").read_text())
+    assert data["error_count"] >= 1
+    assert len(data["errors"]) >= 1
+    assert data["extracted_count"] >= 1

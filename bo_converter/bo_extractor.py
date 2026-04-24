@@ -23,6 +23,7 @@ def extract_all(
 
     reports = []
     errors = []
+    total = 0
 
     with BoClient(config) as client:
         docs = client.enumerate_webi_documents()

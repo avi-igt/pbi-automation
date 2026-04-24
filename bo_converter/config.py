@@ -34,6 +34,3 @@ class BoConfig:
                 "Export it before running: export BO_PASSWORD=..."
             )
         return pw
-
-
-cfg = BoConfig()
