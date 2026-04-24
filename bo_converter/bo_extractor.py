@@ -33,10 +33,11 @@ def extract_all(
     with BoClient(config) as client:
         docs = client.enumerate_webi_documents()
 
-        if folder_filter:
+        effective_folder = folder_filter or config.root_folder
+        if effective_folder:
             docs = [
                 d for d in docs
-                if folder_filter.lower() in client.resolve_folder_path(d).lower()
+                if effective_folder.lower() in client.resolve_folder_path(d).lower()
             ]
 
         if report_filter:
