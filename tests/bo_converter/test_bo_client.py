@@ -1,15 +1,21 @@
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 import pytest
 
 from bo_converter.bo_client import BoClient
 from tests.bo_converter.conftest import (
     LOGON_RESPONSE,
-    INFOSTORE_PAGE1,
+    DOCUMENTS_LIST,
     DOCUMENT_PARAMETERS,
     DOCUMENT_DATAPROVIDERS,
-    DOCUMENT_REPORTS,
-    DOCUMENT_ELEMENTS,
+    DATAPROVIDER_DETAIL,
+    FOLDER_50,
 )
+
+
+def _make_resp(data, status=200):
+    r = MagicMock(status_code=status)
+    r.json.return_value = data
+    return r
 
 
 class TestAuth:
@@ -17,8 +23,7 @@ class TestAuth:
         with patch("bo_converter.bo_client.requests.Session") as MockSession:
             session = MockSession.return_value
             session.headers = {}
-            resp = MagicMock()
-            resp.status_code = 200
+            resp = MagicMock(status_code=200)
             resp.json.return_value = LOGON_RESPONSE
             session.post.return_value = resp
 
@@ -31,8 +36,8 @@ class TestAuth:
     def test_logoff_deletes_token(self, bo_config):
         with patch("bo_converter.bo_client.requests.Session") as MockSession:
             session = MockSession.return_value
-            resp = MagicMock()
-            resp.status_code = 200
+            session.headers = {}
+            resp = MagicMock(status_code=200)
             resp.json.return_value = LOGON_RESPONSE
             session.post.return_value = resp
             session.delete.return_value = MagicMock(status_code=200)
@@ -46,8 +51,8 @@ class TestAuth:
     def test_context_manager(self, bo_config):
         with patch("bo_converter.bo_client.requests.Session") as MockSession:
             session = MockSession.return_value
-            resp = MagicMock()
-            resp.status_code = 200
+            session.headers = {}
+            resp = MagicMock(status_code=200)
             resp.json.return_value = LOGON_RESPONSE
             session.post.return_value = resp
             session.delete.return_value = MagicMock(status_code=200)
@@ -62,50 +67,44 @@ class TestEnumerate:
     def test_enumerate_returns_documents(self, bo_config):
         with patch("bo_converter.bo_client.requests.Session") as MockSession:
             session = MockSession.return_value
+            session.headers = {}
             resp_logon = MagicMock(status_code=200)
             resp_logon.json.return_value = LOGON_RESPONSE
-
-            resp_info = MagicMock(status_code=200)
-            resp_info.json.return_value = INFOSTORE_PAGE1
+            resp_docs = MagicMock(status_code=200)
+            resp_docs.json.return_value = DOCUMENTS_LIST
 
             session.post.return_value = resp_logon
-            session.get.return_value = resp_info
+            session.get.return_value = resp_docs
 
             with BoClient(bo_config) as client:
                 docs = client.enumerate_webi_documents()
 
             assert len(docs) == 2
-            assert docs[0]["SI_NAME"] == "Daily Sales Report"
-            assert docs[1]["SI_NAME"] == "RDST Summary"
+            assert docs[0]["name"] == "Daily Sales Report"
+            assert docs[1]["name"] == "RDST Summary"
 
 
 class TestExtractReport:
     def _setup_client(self, MockSession):
         session = MockSession.return_value
+        session.headers = {}
         resp_logon = MagicMock(status_code=200)
         resp_logon.json.return_value = LOGON_RESPONSE
         session.post.return_value = resp_logon
 
-        resp_params = MagicMock(status_code=200)
-        resp_params.json.return_value = DOCUMENT_PARAMETERS
-
-        resp_dp = MagicMock(status_code=200)
-        resp_dp.json.return_value = DOCUMENT_DATAPROVIDERS
-
-        resp_reports = MagicMock(status_code=200)
-        resp_reports.json.return_value = DOCUMENT_REPORTS
-
-        resp_elements = MagicMock(status_code=200)
-        resp_elements.json.return_value = DOCUMENT_ELEMENTS
-
-        session.get.side_effect = [resp_params, resp_dp, resp_reports, resp_elements]
+        session.get.side_effect = [
+            _make_resp(FOLDER_50),             # resolve folder
+            _make_resp(DOCUMENT_PARAMETERS),   # parameters
+            _make_resp(DOCUMENT_DATAPROVIDERS),# dataproviders list
+            _make_resp(DATAPROVIDER_DETAIL),   # DP0 detail
+        ]
         return session
 
     def test_extract_parameters(self, bo_config):
         with patch("bo_converter.bo_client.requests.Session") as MockSession:
             self._setup_client(MockSession)
 
-            doc = {"SI_ID": 100, "SI_NAME": "Test Report", "SI_DESCRIPTION": "desc", "SI_PATH": "Public Folders/Test"}
+            doc = {"id": "100", "name": "Test Report", "description": "desc", "folderId": 50}
             with BoClient(bo_config) as client:
                 report = client.extract_report(doc)
 
@@ -113,30 +112,31 @@ class TestExtractReport:
             assert report["parameters"][0]["label"] == "Enter Start Date:"
             assert report["parameters"][0]["required"] is True
             assert report["parameters"][0]["select"] == "Single"
+            assert report["parameters"][2]["required"] is False
             assert report["parameters"][2]["select"] == "Multiple"
 
     def test_extract_layout_columns(self, bo_config):
         with patch("bo_converter.bo_client.requests.Session") as MockSession:
             self._setup_client(MockSession)
 
-            doc = {"SI_ID": 100, "SI_NAME": "Test Report", "SI_DESCRIPTION": "desc", "SI_PATH": "Public Folders/Test"}
+            doc = {"id": "100", "name": "Test Report", "description": "desc", "folderId": 50}
             with BoClient(bo_config) as client:
                 report = client.extract_report(doc)
 
-            assert "main" in report["layout"]
-            assert report["layout"]["main"]["columns"] == [
+            assert "Sales" in report["layout"]
+            assert report["layout"]["Sales"]["columns"] == [
                 "Retailer No.", "Retailer Name", "City", "Sales Amount"
             ]
 
-    def test_extract_maps_folder_from_path(self, bo_config):
+    def test_extract_maps_folder_from_id(self, bo_config):
         with patch("bo_converter.bo_client.requests.Session") as MockSession:
             self._setup_client(MockSession)
 
-            doc = {"SI_ID": 100, "SI_NAME": "Test", "SI_DESCRIPTION": "", "SI_PATH": "Public Folders/Sales Reports/Test"}
+            doc = {"id": "100", "name": "Test", "description": "", "folderId": 50}
             with BoClient(bo_config) as client:
                 report = client.extract_report(doc)
 
             assert report["folder"] == "Sales Reports"
-            assert report["legacy_reports"] == "Public Folders\\Sales Reports\\Test"
+            assert report["legacy_reports"] == "Sales Reports\\Test"
             assert report["name"] == "Test"
             assert report["report_format"] == "Paginated"

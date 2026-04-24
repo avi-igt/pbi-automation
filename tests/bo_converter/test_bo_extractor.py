@@ -1,3 +1,5 @@
+"""Phase 1 orchestrator tests — enumerate, filter, extract, write JSON."""
+
 import json
 from unittest.mock import MagicMock, patch
 import pytest
@@ -6,31 +8,36 @@ from bo_converter.bo_extractor import extract_all
 from bo_converter.config import BoConfig
 from tests.bo_converter.conftest import (
     LOGON_RESPONSE,
-    INFOSTORE_PAGE1,
+    DOCUMENTS_LIST,
+    FOLDER_50,
+    FOLDER_51,
     DOCUMENT_PARAMETERS,
     DOCUMENT_DATAPROVIDERS,
-    DOCUMENT_REPORTS,
-    DOCUMENT_ELEMENTS,
+    DATAPROVIDER_DETAIL,
 )
 
 
-def _mock_get_responses():
-    """Return a list of mock responses for a two-document extraction."""
-    def make_resp(data, status=200):
-        r = MagicMock(status_code=status)
-        r.json.return_value = data
-        return r
+def _make_resp(data, status=200):
+    r = MagicMock(status_code=status)
+    r.json.return_value = data
+    return r
 
+
+def _mock_get_responses():
+    """Mock responses for extracting two documents.
+
+    Sequence: enumerate → (folder + params + dp_list + dp_detail) × 2 docs.
+    """
     return [
-        make_resp(INFOSTORE_PAGE1),        # enumerate
-        make_resp(DOCUMENT_PARAMETERS),    # doc 100 params
-        make_resp(DOCUMENT_DATAPROVIDERS), # doc 100 dataproviders
-        make_resp(DOCUMENT_REPORTS),       # doc 100 reports
-        make_resp(DOCUMENT_ELEMENTS),      # doc 100 elements
-        make_resp(DOCUMENT_PARAMETERS),    # doc 101 params
-        make_resp(DOCUMENT_DATAPROVIDERS), # doc 101 dataproviders
-        make_resp(DOCUMENT_REPORTS),       # doc 101 reports
-        make_resp(DOCUMENT_ELEMENTS),      # doc 101 elements
+        _make_resp(DOCUMENTS_LIST),         # enumerate
+        _make_resp(FOLDER_50),              # doc 100 folder resolve
+        _make_resp(DOCUMENT_PARAMETERS),    # doc 100 params
+        _make_resp(DOCUMENT_DATAPROVIDERS), # doc 100 dataproviders list
+        _make_resp(DATAPROVIDER_DETAIL),    # doc 100 DP0 detail
+        _make_resp(FOLDER_51),              # doc 101 folder resolve
+        _make_resp(DOCUMENT_PARAMETERS),    # doc 101 params
+        _make_resp(DOCUMENT_DATAPROVIDERS), # doc 101 dataproviders list
+        _make_resp(DATAPROVIDER_DETAIL),    # doc 101 DP0 detail
     ]
 
 
@@ -66,7 +73,17 @@ def test_extract_all_with_folder_filter(bo_config, tmp_path):
         resp_logon.json.return_value = LOGON_RESPONSE
         session.post.return_value = resp_logon
         session.delete.return_value = MagicMock(status_code=200)
-        session.get.side_effect = _mock_get_responses()
+        # Folder filter calls resolve_folder for each doc during filtering,
+        # then extract_report calls it again (but it's cached).
+        # Sequence: enumerate → folder50 → folder51 (filter) → params + dp_list + dp_detail (doc 100 only)
+        session.get.side_effect = [
+            _make_resp(DOCUMENTS_LIST),         # enumerate
+            _make_resp(FOLDER_50),              # resolve folder 50 for filter
+            _make_resp(FOLDER_51),              # resolve folder 51 for filter
+            _make_resp(DOCUMENT_PARAMETERS),    # doc 100 params (only Sales Reports match)
+            _make_resp(DOCUMENT_DATAPROVIDERS), # doc 100 dataproviders list
+            _make_resp(DATAPROVIDER_DETAIL),    # doc 100 DP0 detail
+        ]
 
         result = extract_all(bo_config, output_dir=output_dir, folder_filter="Sales")
 
@@ -84,7 +101,15 @@ def test_extract_all_with_report_filter(bo_config, tmp_path):
         resp_logon.json.return_value = LOGON_RESPONSE
         session.post.return_value = resp_logon
         session.delete.return_value = MagicMock(status_code=200)
-        session.get.side_effect = _mock_get_responses()
+        # Report filter uses doc["name"], no extra API calls.
+        # Only doc 101 ("RDST Summary") matches.
+        session.get.side_effect = [
+            _make_resp(DOCUMENTS_LIST),         # enumerate
+            _make_resp(FOLDER_51),              # doc 101 folder resolve
+            _make_resp(DOCUMENT_PARAMETERS),    # doc 101 params
+            _make_resp(DOCUMENT_DATAPROVIDERS), # doc 101 dataproviders list
+            _make_resp(DATAPROVIDER_DETAIL),    # doc 101 DP0 detail
+        ]
 
         result = extract_all(bo_config, output_dir=output_dir, report_filter="RDST")
 
@@ -103,21 +128,15 @@ def test_extract_all_records_errors(bo_config, tmp_path):
         session.post.return_value = resp_logon
         session.delete.return_value = MagicMock(status_code=200)
 
-        resp_enum = MagicMock(status_code=200)
-        resp_enum.json.return_value = INFOSTORE_PAGE1
-
-        def make_resp(data, status=200):
-            r = MagicMock(status_code=status)
-            r.json.return_value = data
-            return r
-
         session.get.side_effect = [
-            resp_enum,
+            _make_resp(DOCUMENTS_LIST),  # enumerate
+            # doc 100: folder resolve fails with exception
             MagicMock(status_code=200, json=MagicMock(side_effect=Exception("parse error"))),
-            make_resp(DOCUMENT_PARAMETERS),
-            make_resp(DOCUMENT_DATAPROVIDERS),
-            make_resp(DOCUMENT_REPORTS),
-            make_resp(DOCUMENT_ELEMENTS),
+            # doc 101: successful extraction
+            _make_resp(FOLDER_51),              # folder resolve
+            _make_resp(DOCUMENT_PARAMETERS),    # params
+            _make_resp(DOCUMENT_DATAPROVIDERS), # dataproviders list
+            _make_resp(DATAPROVIDER_DETAIL),    # DP0 detail
         ]
 
         result = extract_all(bo_config, output_dir=output_dir)

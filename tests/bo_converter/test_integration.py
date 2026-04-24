@@ -1,4 +1,4 @@
-"""End-to-end test: BO API (mocked) → JSON → .md specs."""
+"""End-to-end test: BO API (mocked) -> JSON -> .md specs."""
 
 import json
 from unittest.mock import MagicMock, patch
@@ -9,11 +9,12 @@ from bo_converter.bo_extractor import extract_all
 from bo_converter.bo_spec_generator import generate_specs_from_json
 from tests.bo_converter.conftest import (
     LOGON_RESPONSE,
-    INFOSTORE_PAGE1,
+    DOCUMENTS_LIST,
+    FOLDER_50,
+    FOLDER_51,
     DOCUMENT_PARAMETERS,
     DOCUMENT_DATAPROVIDERS,
-    DOCUMENT_REPORTS,
-    DOCUMENT_ELEMENTS,
+    DATAPROVIDER_DETAIL,
 )
 
 
@@ -21,6 +22,24 @@ def _make_resp(data, status=200):
     r = MagicMock(status_code=status)
     r.json.return_value = data
     return r
+
+
+def _mock_get_responses():
+    """Mock responses for two-document extraction.
+
+    Sequence: enumerate -> (folder + params + dp_list + dp_detail) x 2 docs.
+    """
+    return [
+        _make_resp(DOCUMENTS_LIST),         # enumerate
+        _make_resp(FOLDER_50),              # doc 100 folder resolve
+        _make_resp(DOCUMENT_PARAMETERS),    # doc 100 params
+        _make_resp(DOCUMENT_DATAPROVIDERS), # doc 100 dataproviders list
+        _make_resp(DATAPROVIDER_DETAIL),    # doc 100 DP0 detail
+        _make_resp(FOLDER_51),              # doc 101 folder resolve
+        _make_resp(DOCUMENT_PARAMETERS),    # doc 101 params
+        _make_resp(DOCUMENT_DATAPROVIDERS), # doc 101 dataproviders list
+        _make_resp(DATAPROVIDER_DETAIL),    # doc 101 DP0 detail
+    ]
 
 
 def test_full_pipeline(bo_config, tmp_path):
@@ -31,17 +50,7 @@ def test_full_pipeline(bo_config, tmp_path):
         session.headers = {}
         session.post.return_value = _make_resp(LOGON_RESPONSE)
         session.delete.return_value = MagicMock(status_code=200)
-        session.get.side_effect = [
-            _make_resp(INFOSTORE_PAGE1),       # enumerate
-            _make_resp(DOCUMENT_PARAMETERS),   # doc 100
-            _make_resp(DOCUMENT_DATAPROVIDERS),
-            _make_resp(DOCUMENT_REPORTS),
-            _make_resp(DOCUMENT_ELEMENTS),
-            _make_resp(DOCUMENT_PARAMETERS),   # doc 101
-            _make_resp(DOCUMENT_DATAPROVIDERS),
-            _make_resp(DOCUMENT_REPORTS),
-            _make_resp(DOCUMENT_ELEMENTS),
-        ]
+        session.get.side_effect = _mock_get_responses()
 
         # Phase 1
         json_path = extract_all(bo_config, output_dir=output_dir)
@@ -62,7 +71,7 @@ def test_full_pipeline(bo_config, tmp_path):
     assert "Daily Sales Report" in content
     assert "Enter Start Date:" in content
     assert "Retailer No." in content
-    assert "Public Folders" in content
+    assert "Sales Reports" in content
 
     # Verify second spec exists
     content2 = paths[1].read_text()

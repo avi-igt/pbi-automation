@@ -27,52 +27,67 @@ LOGON_RESPONSE = {
     "logonToken": "COMMANDCOM-LCM:6400@{3&2=5291,U3&p=40674.9}",
 }
 
-INFOSTORE_PAGE1 = {
-    "entries": {
-        "entry": [
+DOCUMENTS_LIST = {
+    "documents": {
+        "document": [
             {
-                "SI_ID": 100,
-                "SI_NAME": "Daily Sales Report",
-                "SI_DESCRIPTION": "Shows daily sales by retailer",
-                "SI_PATH": "Public Folders/Sales Reports/Daily Sales Report",
-                "SI_KIND": "Webi",
-                "SI_PARENT_FOLDER": 50,
+                "id": "100",
+                "cuid": "Fabc123",
+                "name": "Daily Sales Report",
+                "description": "Shows daily sales by retailer",
+                "folderId": 50,
+                "scheduled": "false",
             },
             {
-                "SI_ID": 101,
-                "SI_NAME": "RDST Summary",
-                "SI_DESCRIPTION": "Snowflake RDST data",
-                "SI_PATH": "Public Folders/Data Reports/RDST Summary",
-                "SI_KIND": "Webi",
-                "SI_PARENT_FOLDER": 51,
+                "id": "101",
+                "cuid": "Fdef456",
+                "name": "RDST Summary",
+                "description": "Snowflake RDST data",
+                "folderId": 51,
+                "scheduled": "false",
             },
         ]
     }
 }
 
+FOLDER_50 = {"id": "50", "name": "Sales Reports", "type": "Folder"}
+FOLDER_51 = {"id": "51", "name": "Data Reports", "type": "Folder"}
+
 DOCUMENT_PARAMETERS = {
     "parameters": {
         "parameter": [
             {
+                "@optional": "false",
+                "@type": "prompt",
                 "id": 0,
                 "name": "Enter Start Date:",
-                "type": "DateTime",
-                "mandatory": True,
-                "multiValue": False,
+                "answer": {
+                    "@constrained": "false",
+                    "@type": "Date",
+                    "info": {"@cardinality": "Single"},
+                },
             },
             {
+                "@optional": "false",
+                "@type": "prompt",
                 "id": 1,
                 "name": "Enter End Date:",
-                "type": "DateTime",
-                "mandatory": True,
-                "multiValue": False,
+                "answer": {
+                    "@constrained": "false",
+                    "@type": "Date",
+                    "info": {"@cardinality": "Single"},
+                },
             },
             {
+                "@optional": "true",
+                "@type": "prompt",
                 "id": 2,
                 "name": "Select Region:",
-                "type": "String",
-                "mandatory": False,
-                "multiValue": True,
+                "answer": {
+                    "@constrained": "false",
+                    "@type": "String",
+                    "info": {"@cardinality": "Multiple"},
+                },
             },
         ]
     }
@@ -83,38 +98,46 @@ DOCUMENT_DATAPROVIDERS = {
         "dataprovider": [
             {
                 "id": "DP0",
-                "name": "Query 1",
-                "dataSourceName": "Sales Universe",
+                "name": "Sales",
                 "dataSourceType": "unx",
             }
         ]
     }
 }
 
-DOCUMENT_REPORTS = {
-    "reports": {
-        "report": [
-            {"id": 1, "name": "Report 1"},
-        ]
-    }
-}
-
-DOCUMENT_ELEMENTS = {
-    "reportElements": {
-        "reportElement": [
-            {
-                "id": "table1",
-                "type": "Table",
-                "name": "Block 1",
-                "headers": {
-                    "header": [
-                        {"name": "Retailer No."},
-                        {"name": "Retailer Name"},
-                        {"name": "City"},
-                        {"name": "Sales Amount"},
-                    ]
+DATAPROVIDER_DETAIL = {
+    "dataprovider": {
+        "id": "DP0",
+        "name": "Sales",
+        "dataSourceName": "LocationSales",
+        "dataSourceType": "unx",
+        "dictionary": {
+            "expression": [
+                {
+                    "@dataType": "Numeric",
+                    "@qualification": "Dimension",
+                    "id": "DP0.DO6",
+                    "name": "Retailer No.",
                 },
-            }
-        ]
+                {
+                    "@dataType": "String",
+                    "@qualification": "Dimension",
+                    "id": "DP0.DO7",
+                    "name": "Retailer Name",
+                },
+                {
+                    "@dataType": "String",
+                    "@qualification": "Dimension",
+                    "id": "DP0.DO8",
+                    "name": "City",
+                },
+                {
+                    "@dataType": "Numeric",
+                    "@qualification": "Measure",
+                    "id": "DP0.DOfa",
+                    "name": "Sales Amount",
+                },
+            ]
+        },
     }
 }

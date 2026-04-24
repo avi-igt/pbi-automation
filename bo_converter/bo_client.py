@@ -14,6 +14,13 @@ from bo_converter.config import BoConfig
 log = logging.getLogger(__name__)
 
 
+def _as_list(val):
+    """Normalise BO API responses that return a single dict instead of a list."""
+    if val is None:
+        return []
+    return val if isinstance(val, list) else [val]
+
+
 class BoClient:
 
     def __init__(self, config: BoConfig):
@@ -23,6 +30,7 @@ class BoClient:
             "Accept": "application/json",
             "Content-Type": "application/json",
         })
+        self._folder_cache: dict[str, str] = {}
 
     def __enter__(self):
         self.logon()
@@ -56,52 +64,35 @@ class BoClient:
             log.warning("Logoff failed: %s", e)
 
     def enumerate_webi_documents(self) -> list[dict]:
-        docs = []
-        offset = 0
-        limit = 50
-        while True:
-            query = (
-                "SELECT SI_ID,SI_NAME,SI_DESCRIPTION,SI_PARENT_FOLDER,SI_PATH "
-                "FROM CI_INFOOBJECTS WHERE SI_KIND='Webi'"
-            )
-            url = f"{self._cfg.host}/infostore"
-            params = {"query": query, "offset": offset, "limit": limit}
-            resp = self._session.get(url, params=params)
-            resp.raise_for_status()
-            data = resp.json()
-            entries = data.get("entries", {}).get("entry", [])
-            if not entries:
-                break
-            docs.extend(entries)
-            if len(entries) < limit:
-                break
-            offset += limit
+        url = f"{self._cfg.host}/raylight/v1/documents"
+        resp = self._session.get(url)
+        resp.raise_for_status()
+        data = resp.json()
+        docs = _as_list(data.get("documents", {}).get("document", []))
         log.info("Enumerated %d WebI documents", len(docs))
         return docs
 
     def extract_report(self, doc: dict) -> dict:
-        doc_id = doc["SI_ID"]
-        name = doc["SI_NAME"]
-        description = doc.get("SI_DESCRIPTION", "")
-        si_path = doc.get("SI_PATH", "")
+        doc_id = doc["id"]
+        name = doc["name"]
+        description = doc.get("description", "")
+        folder_id = str(doc.get("folderId", ""))
 
-        path_parts = si_path.replace("\\", "/").split("/")
-        folder = path_parts[-2] if len(path_parts) >= 2 else ""
-        legacy_reports = si_path.replace("/", "\\")
+        folder_name = self._resolve_folder(folder_id)
 
         parameters = self._extract_parameters(doc_id)
         dataproviders = self._extract_dataproviders(doc_id)
-        layout = self._extract_layout(doc_id)
+        layout = self._extract_layout(doc_id, dataproviders)
 
         report = {
-            "folder": folder,
+            "folder": folder_name,
             "name": name,
             "report_format": "Paginated",
-            "legacy_reports": legacy_reports,
+            "legacy_reports": f"{folder_name}\\{name}",
             "legacy_users": "",
             "summary": description,
             "sort": "N/A",
-            "target_folder": folder,
+            "target_folder": folder_name,
             "notes": "",
             "datasource_type": "",
             "parameters": parameters,
@@ -114,74 +105,98 @@ class BoClient:
         time.sleep(self._cfg.request_delay)
         return report
 
-    def _extract_parameters(self, doc_id: int) -> list[dict]:
+    def resolve_folder(self, doc_or_id) -> str:
+        folder_id = str(doc_or_id.get("folderId", "")) if isinstance(doc_or_id, dict) else str(doc_or_id)
+        return self._resolve_folder(folder_id)
+
+    def _resolve_folder(self, folder_id: str) -> str:
+        if not folder_id:
+            return ""
+        if folder_id in self._folder_cache:
+            return self._folder_cache[folder_id]
+        url = f"{self._cfg.host}/infostore/{folder_id}"
+        resp = self._session.get(url)
+        if resp.status_code != 200:
+            log.warning("Failed to resolve folder %s: %s", folder_id, resp.status_code)
+            self._folder_cache[folder_id] = folder_id
+            return folder_id
+        data = resp.json()
+        name = data.get("name", folder_id)
+        self._folder_cache[folder_id] = name
+        return name
+
+    def _extract_parameters(self, doc_id) -> list[dict]:
         url = f"{self._cfg.host}/raylight/v1/documents/{doc_id}/parameters"
         resp = self._session.get(url)
         if resp.status_code != 200:
-            log.warning("Failed to get parameters for doc %d: %s", doc_id, resp.status_code)
+            log.warning("Failed to get parameters for doc %s: %s", doc_id, resp.status_code)
             return []
         data = resp.json()
-        raw_params = data.get("parameters", {}).get("parameter", [])
+        raw_params = _as_list(data.get("parameters", {}).get("parameter", []))
         params = []
         for p in raw_params:
+            optional = p.get("@optional", "true")
+            required = optional == "false"
+            cardinality = (
+                p.get("answer", {}).get("info", {}).get("@cardinality", "Single")
+            )
             params.append({
                 "label": p.get("name", ""),
-                "required": p.get("mandatory", False),
-                "select": "Multiple" if p.get("multiValue", False) else "Single",
+                "required": required,
+                "select": cardinality,
                 "notes": "",
             })
         return params
 
-    def _extract_dataproviders(self, doc_id: int) -> list[dict]:
+    def _extract_dataproviders(self, doc_id) -> list[dict]:
         url = f"{self._cfg.host}/raylight/v1/documents/{doc_id}/dataproviders"
         resp = self._session.get(url)
         if resp.status_code != 200:
-            log.warning("Failed to get dataproviders for doc %d: %s", doc_id, resp.status_code)
+            log.warning("Failed to get dataproviders for doc %s: %s", doc_id, resp.status_code)
             return []
         data = resp.json()
-        raw_dp = data.get("dataproviders", {}).get("dataprovider", [])
-        return [
-            {
+        raw_dp = _as_list(data.get("dataproviders", {}).get("dataprovider", []))
+        providers = []
+        for dp in raw_dp:
+            dp_id = dp.get("id", "")
+            detail = self._get_dataprovider_detail(doc_id, dp_id)
+            providers.append({
+                "id": dp_id,
                 "name": dp.get("name", ""),
-                "dataSourceName": dp.get("dataSourceName", ""),
+                "dataSourceName": detail.get("dataSourceName", ""),
                 "dataSourceType": dp.get("dataSourceType", ""),
-            }
-            for dp in raw_dp
-        ]
+                "columns": detail.get("columns", []),
+            })
+        return providers
 
-    def _extract_layout(self, doc_id: int) -> dict:
-        reports_url = f"{self._cfg.host}/raylight/v1/documents/{doc_id}/reports"
-        resp = self._session.get(reports_url)
+    def _get_dataprovider_detail(self, doc_id, dp_id: str) -> dict:
+        url = f"{self._cfg.host}/raylight/v1/documents/{doc_id}/dataproviders/{dp_id}"
+        resp = self._session.get(url)
         if resp.status_code != 200:
-            log.warning("Failed to get reports for doc %d: %s", doc_id, resp.status_code)
-            return {"main": {"columns": [], "raw": ""}}
-
+            return {}
         data = resp.json()
-        raw_reports = data.get("reports", {}).get("report", [])
+        dp = data.get("dataprovider", {})
+        ds_name = dp.get("dataSourceName", "")
+        exprs = _as_list(dp.get("dictionary", {}).get("expression", []))
+        columns = [
+            {
+                "name": e.get("name", ""),
+                "dataType": e.get("@dataType", ""),
+                "qualification": e.get("@qualification", ""),
+            }
+            for e in exprs
+        ]
+        return {"dataSourceName": ds_name, "columns": columns}
+
+    def _extract_layout(self, doc_id, dataproviders: list[dict]) -> dict:
         layout = {}
-
-        for report in raw_reports:
-            rid = report["id"]
-            tab_name = report.get("name", "main")
-            elements_url = (
-                f"{self._cfg.host}/raylight/v1/documents/{doc_id}/reports/{rid}/elements"
-            )
-            eresp = self._session.get(elements_url)
-            if eresp.status_code != 200:
-                continue
-            edata = eresp.json()
-            raw_elements = edata.get("reportElements", {}).get("reportElement", [])
-
-            for elem in raw_elements:
-                if elem.get("type") != "Table":
-                    continue
-                section_name = tab_name if tab_name != "Report 1" else "main"
-                headers = elem.get("headers", {}).get("header", [])
-                columns = [h.get("name", "") for h in headers if h.get("name")]
-                key = section_name
-                if key in layout:
-                    key = f"{section_name} ({elem.get('name', 'continued')})"
-                layout[key] = {"columns": columns, "raw": ""}
+        for dp in dataproviders:
+            dp_name = dp.get("name", "main")
+            columns = [c["name"] for c in dp.get("columns", []) if c.get("name")]
+            key = dp_name if dp_name else "main"
+            if key in layout:
+                key = f"{key} (continued)"
+            layout[key] = {"columns": columns, "raw": ""}
 
         if not layout:
             layout["main"] = {"columns": [], "raw": ""}

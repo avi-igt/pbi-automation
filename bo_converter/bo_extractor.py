@@ -31,21 +31,21 @@ def extract_all(
         if folder_filter:
             docs = [
                 d for d in docs
-                if folder_filter.lower() in d.get("SI_PATH", "").lower()
+                if folder_filter.lower() in client.resolve_folder(d).lower()
             ]
 
         if report_filter:
             docs = [
                 d for d in docs
-                if report_filter.lower() in d.get("SI_NAME", "").lower()
+                if report_filter.lower() in d.get("name", "").lower()
             ]
 
         total = len(docs)
         log.info("Extracting %d documents (after filters)", total)
 
         for i, doc in enumerate(docs, 1):
-            doc_id = doc.get("SI_ID", "?")
-            doc_name = doc.get("SI_NAME", "?")
+            doc_id = doc.get("id", "?")
+            doc_name = doc.get("name", "?")
             log.info("[%d/%d] %s (id=%s)", i, total, doc_name, doc_id)
             try:
                 report = client.extract_report(doc)
