@@ -67,6 +67,6 @@ def extract_all(
         "reports": reports,
     }
 
-    json_path.write_text(json.dumps(result, indent=2, ensure_ascii=False))
+    json_path.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
     log.info("Wrote %s (%d reports, %d errors)", json_path, len(reports), len(errors))
     return json_path

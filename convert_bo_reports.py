@@ -21,7 +21,7 @@ _REPO_ROOT = Path(__file__).parent
 def _banner():
     print()
     print("  BO-to-PBI Converter")
-    print("  SAP BusinessObjects → Power BI Report Specs")
+    print("  SAP BusinessObjects -> Power BI Report Specs")
     print()
 
 
