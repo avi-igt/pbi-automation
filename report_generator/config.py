@@ -23,11 +23,12 @@ _FALLBACK_TEMPLATE = _PKG_ROOT / "templates" / "MO_Report_Template.rdl"
 class PbiConfig:
     """Loaded once at import time; use the module-level `cfg` singleton."""
 
-    def __init__(self):
+    def __init__(self, properties_path=None):
         self._cp = configparser.ConfigParser(interpolation=None)
         self._cp.optionxform = str  # preserve key case (needed for MO_Sales etc.)
-        if _PROPERTIES_FILE.exists():
-            self._cp.read(_PROPERTIES_FILE, encoding="utf-8")
+        path = Path(properties_path) if properties_path else _PROPERTIES_FILE
+        if path.exists():
+            self._cp.read(path, encoding="utf-8")
 
         self.workspace_name = self._get("fabric", "workspace_name", "Missouri - D1V1")
         self.tenant_id = self._get("fabric", "tenant_id", "TODO_TENANT_ID")
@@ -98,6 +99,31 @@ class PbiConfig:
 
         # Embedded logo base64 (extracted from template RDL on first access)
         self._logo_b64: str | None = None
+
+        # Site / jurisdiction config (multi-state FRD parsing)
+        _prefix = self._get("site", "site_prefix", "MO")
+        _alternatives = "|".join(p.strip() for p in _prefix.split("|"))
+        self.site_prefix_re = re.compile(rf"(?:{_alternatives})-\d+")
+
+        self.sdt_aliases = {
+            a.strip()
+            for a in self._get("site", "sdt_aliases", "Work Item").split(",")
+            if a.strip()
+        }
+
+        self.skip_sections = {
+            s.strip()
+            for s in self._get(
+                "site", "skip_sections",
+                "Introduction, Performance Wizard Reporting"
+            ).split(",")
+            if s.strip()
+        }
+
+        self.logo_label = self._get(
+            "site", "logo_label",
+            "Missouri Lottery logo (top-left of header)"
+        )
 
     # ------------------------------------------------------------------
     # Helpers
