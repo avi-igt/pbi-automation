@@ -22,6 +22,16 @@ _PROPERTIES_FILE = _REPO_ROOT / "semantic.properties"
 # Approved display_name postfixes per handbook
 _VALID_POSTFIXES = ("LDI", "RSM", "RPT")
 
+_IDENTIFIER_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
+
+
+def _validate_identifier(value: str, context: str) -> None:
+    if not _IDENTIFIER_RE.match(value):
+        raise ValueError(
+            f"{context}: '{value}' is not a valid identifier — "
+            f"must be alphanumeric and underscores only (A-Z, 0-9, _)."
+        )
+
 
 # ---------------------------------------------------------------------------
 # Data classes
@@ -101,6 +111,8 @@ def _parse_dimension_value(alias: str, raw: str) -> DimensionDef:
             f"[dimensions] {alias}: source must be SCHEMA.TABLE, got '{source}'"
         )
     schema, table = source.split(".", 1)
+    _validate_identifier(schema.upper(), f"[dimensions] {alias} schema")
+    _validate_identifier(table.upper(), f"[dimensions] {alias} table")
 
     kwargs: dict[str, str] = {}
     for part in parts[1:]:
@@ -109,6 +121,8 @@ def _parse_dimension_value(alias: str, raw: str) -> DimensionDef:
             kwargs[k.strip().lower()] = v.strip()
 
     primary_key = kwargs.get("primary_key", "")
+    if primary_key:
+        _validate_identifier(primary_key.upper(), f"[dimensions] {alias} primary_key")
     if not primary_key:
         raise ValueError(
             f"[dimensions] {alias}: missing primary_key= in '{raw}'"
@@ -152,6 +166,8 @@ def _parse_model_section(model_id: str, cp: configparser.ConfigParser,
             f"[{section}] fact_table must be SCHEMA.TABLE, got '{fact_table_raw}'"
         )
     fact_schema, fact_table = fact_table_raw.split(".", 1)
+    _validate_identifier(fact_schema, f"[{section}] fact_table schema")
+    _validate_identifier(fact_table, f"[{section}] fact_table table")
 
     # Parse dimension aliases with optional fact key override: "products:GAME_PRODUCT_KEY"
     dimensions = []
@@ -164,6 +180,7 @@ def _parse_model_section(model_id: str, cp: configparser.ConfigParser,
             alias, fact_key = raw.split(":", 1)
             alias = alias.strip()
             fact_key = fact_key.strip().upper()
+            _validate_identifier(fact_key, f"[{section}] dimension override key")
             dimensions.append(alias)
             dim_fact_keys[alias] = fact_key
         else:
