@@ -129,6 +129,19 @@ implementation = 2.0
 **Never hardcode** DSN names, workspace names, or dataset names — always read from
 `pbi.properties` via `report_generator/config.py`.
 
+### Site Configuration (`[site]` section)
+
+The `[site]` section controls FRD parser behavior per jurisdiction:
+
+| Key | Default | Purpose |
+|-----|---------|---------|
+| `site_prefix` | `MO` | ADO work item prefix (e.g. `NJ`, `FL`). Supports `\|` for multi-site: `MO\|NJ` |
+| `sdt_aliases` | `Work Item` | SDT alias values in the FRD .docx (comma-separated) |
+| `skip_sections` | `Introduction, Performance Wizard Reporting` | H1 headings to skip (comma-separated) |
+| `logo_label` | `Missouri Lottery logo (top-left of header)` | Logo line in generated spec .md files |
+
+For a new site, set `site_prefix` and `logo_label`. Only override other keys if the FRD template structure differs.
+
 ### Data Source Detection Logic
 
 `infer_datasource()` (`config.py`) classifies each report in priority order:
