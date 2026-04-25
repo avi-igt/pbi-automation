@@ -155,8 +155,11 @@ class SnowflakeClient:
             ORDER BY ordinal_position
         """
         cursor = self._conn.cursor(DictCursor)
-        cursor.execute(sql, {"schema": schema.upper(), "table": table.upper()})
-        rows = cursor.fetchall()
+        try:
+            cursor.execute(sql, {"schema": schema.upper(), "table": table.upper()})
+            rows = cursor.fetchall()
+        finally:
+            cursor.close()
 
         if not rows:
             raise ValueError(
@@ -183,8 +186,11 @@ class SnowflakeClient:
               AND table_name   = %(table)s
         """
         cursor = self._conn.cursor(DictCursor)
-        cursor.execute(sql, {"schema": schema.upper(), "table": table.upper()})
-        row = cursor.fetchone()
+        try:
+            cursor.execute(sql, {"schema": schema.upper(), "table": table.upper()})
+            row = cursor.fetchone()
+        finally:
+            cursor.close()
         if not row:
             # Default to Table if object not found in tables view
             return "Table"
