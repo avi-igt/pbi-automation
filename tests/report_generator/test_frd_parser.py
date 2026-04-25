@@ -131,3 +131,24 @@ class TestParseRequirements:
         assert len(result) == 1
         assert result[0]["id"] == "NJ-200"
         assert "total sales" in result[0]["text"]
+
+
+from report_generator import spec_generator
+
+
+class TestSpecGeneratorCleanRaw:
+    def test_strips_mo_jira_noise(self):
+        raw = "Missouri_Omnia_Conversion/MO-12345 Some text MO-67890"
+        result = spec_generator.clean_raw(raw)
+        assert "MO-12345" not in result
+        assert "MO-67890" not in result
+        assert "Some text" in result
+
+    def test_strips_nj_jira_noise(self, nj_config, monkeypatch):
+        monkeypatch.setattr(spec_generator, "_cfg", nj_config)
+        monkeypatch.setattr(spec_generator, "_JIRA_NOISE", None)
+        raw = "NewJersey_Omnia_Conversion/NJ-12345 Some text NJ-67890"
+        result = spec_generator.clean_raw(raw)
+        assert "NJ-12345" not in result
+        assert "NJ-67890" not in result
+        assert "Some text" in result

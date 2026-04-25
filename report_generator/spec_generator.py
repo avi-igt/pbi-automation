@@ -61,20 +61,28 @@ def _infer_ds_info(report_name: str, summary: dict) -> tuple:
 
 # ── Text cleaning ──────────────────────────────────────────────────────────────
 
-_JIRA_NOISE = re.compile(
-    r"Missouri_Omnia_Conversion/MO-\d+"
-    r"|MO-\d+"
-    r"|[,]+\s*Draft\s*(?:Draft)?"
-    r"|[,]+\s*Functional\s*(?:Functional)?"
-    r"|[,]+\s*Business\s*(?:Business)?"
-    r"|\s*,\s*,\s*-\s*-\s*"
-    r"|\s*,\s*-\s*-\s*"
-    r"|\s+-\s+-(?:\s+|$)"
-    r"|[\u200b\u200c\u200d\u00ad\ufeff]+"
-)
+def _jira_noise_re():
+    """Build noise-stripping regex from site config."""
+    wi = _cfg.site_prefix_re.pattern if _cfg else r"(?:MO)-\d+"
+    return re.compile(
+        rf"\w+_Omnia_Conversion/{wi}"
+        rf"|{wi}"
+        r"|[,]+\s*Draft\s*(?:Draft)?"
+        r"|[,]+\s*Functional\s*(?:Functional)?"
+        r"|[,]+\s*Business\s*(?:Business)?"
+        r"|\s*,\s*,\s*-\s*-\s*"
+        r"|\s*,\s*-\s*-\s*"
+        r"|\s+-\s+-(?:\s+|$)"
+        r"|[\u200b\u200c\u200d\u00ad\ufeff]+"
+    )
+
+_JIRA_NOISE = None
 
 
 def clean_raw(raw: str) -> str:
+    global _JIRA_NOISE
+    if _JIRA_NOISE is None:
+        _JIRA_NOISE = _jira_noise_re()
     text = _JIRA_NOISE.sub(" ", raw)
     text = re.sub(r"\s*,\s*,\s*", " ", text)
     return " ".join(text.split()).strip()
@@ -703,7 +711,8 @@ def generate_md(
         ]
     else:
         lines.append("- **Report Header:** Latest date of data availability")
-    lines += ["- **Logo:** Missouri Lottery logo (top-left of header)", ""]
+    _logo = _cfg.logo_label if _cfg else "Missouri Lottery logo (top-left of header)"
+    lines += [f"- **Logo:** {_logo}", ""]
 
     lines += ["## General Formatting  *(Section 2.1 — applies to all reports)*", ""]
     merged_reqs = gen_reqs.get("all_reports", []) + (
