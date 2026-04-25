@@ -187,7 +187,8 @@ def _col_block(
     """Render a TMDL column block.
 
     The TMDL column identifier is the display name (quoted when it contains
-    spaces). sourceColumn always points to the physical/PQ column name.
+    spaces or single quotes; quotes are doubled). sourceColumn always points
+    to the physical/PQ column name.
     """
     tmdl_id = display_name if (display_name and display_name != col_name) else col_name
     if " " in tmdl_id or "'" in tmdl_id:
