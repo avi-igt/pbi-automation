@@ -512,6 +512,7 @@ def generate_md(
     param_section: str,
     datasource_type: str = "semantic_model",
     semantic_model: str = "",
+    legacy_universes: list[str] | None = None,
 ) -> str:
     lines = []
     title = summary.get("title") or report_name
@@ -526,6 +527,8 @@ def generate_md(
         lines.append(f"- **Legacy Path:** `{summary['legacy_path']}`")
     if summary.get("legacy_users"):
         lines.append(f"- **Legacy Users:** {summary['legacy_users']}")
+    if legacy_universes:
+        lines.append(f"- **Legacy Universe(s):** {', '.join(f'`{u}`' for u in legacy_universes)}")
     if summary.get("description"):
         lines.append(f"- **Description:** {summary['description']}")
     lines.append(f"- **Report Format:** {fmt} ({file_ext})")

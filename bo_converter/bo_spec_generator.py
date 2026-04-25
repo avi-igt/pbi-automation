@@ -15,7 +15,7 @@ from report_generator.config import cfg as rpt_cfg
 log = logging.getLogger(__name__)
 
 
-def _slugify(name: str) -> str:
+def _md_filename(name: str) -> str:
     slug = name.lower().strip()
     slug = re.sub(r"[^a-z0-9]+", "-", slug)
     return slug.strip("-")
@@ -54,10 +54,40 @@ def _normalise_requirements(report: dict) -> list[str]:
     return [r.get("text", r) if isinstance(r, dict) else str(r) for r in reqs]
 
 
+def _extract_universes(report: dict) -> list[str]:
+    seen = set()
+    result = []
+    for dp in report.get("_dataproviders", []):
+        name = dp.get("dataSourceName", "")
+        if name and name not in seen:
+            seen.add(name)
+            result.append(name)
+    return result
+
+
+_DS_TYPES = {"snowflake", "db2", "semantic_model"}
+
+
+def _resolve_from_universe_map(
+    report: dict, universe_map: dict[str, str] | None
+) -> tuple[str, str] | tuple[None, None]:
+    if not universe_map:
+        return None, None
+    for dp in report.get("_dataproviders", []):
+        universe = dp.get("dataSourceName", "").lower()
+        if universe and universe in universe_map:
+            value = universe_map[universe]
+            if value.lower() in _DS_TYPES:
+                return value.lower(), ""
+            return "semantic_model", value
+    return None, None
+
+
 def _infer_datasource(report: dict) -> str:
     ds = report.get("datasource_type", "")
     if ds:
         return ds
+
     report_for_inference = {
         "name": report.get("name", ""),
         "summary": report.get("summary", ""),
@@ -78,6 +108,7 @@ def generate_specs_from_json(
     json_path: Path | str,
     output_dir: Path | str,
     report_filter: str | None = None,
+    universe_map: dict[str, str] | None = None,
 ) -> list[Path]:
     json_path = Path(json_path)
     output_dir = Path(output_dir)
@@ -99,8 +130,13 @@ def generate_specs_from_json(
         params, param_section = _normalise_params(report)
         layout = _normalise_layout(report)
         reqs = _normalise_requirements(report)
-        ds_type = _infer_datasource(report)
-        model = _infer_semantic_model(report) if ds_type == "semantic_model" else ""
+        map_ds, map_model = _resolve_from_universe_map(report, universe_map)
+        ds_type = map_ds or _infer_datasource(report)
+        if ds_type == "semantic_model":
+            model = map_model or _infer_semantic_model(report)
+        else:
+            model = ""
+        universes = _extract_universes(report)
 
         md = generate_md(
             report_name=name,
@@ -112,9 +148,10 @@ def generate_specs_from_json(
             param_section=param_section,
             datasource_type=ds_type,
             semantic_model=model,
+            legacy_universes=universes,
         )
 
-        filename = f"{_slugify(name)}.md"
+        filename = f"{_md_filename(name)}.md"
         out_path = output_dir / filename
         out_path.write_text(md, encoding="utf-8")
         log.info("Wrote spec: %s", out_path)

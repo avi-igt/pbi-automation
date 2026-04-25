@@ -24,8 +24,14 @@ class BoConfig:
         self.username = bo.get("username", "Administrator")
         self.auth_type = bo.get("auth_type", "secEnterprise")
         self.request_delay = float(bo.get("request_delay", "0.2"))
+        self.timeout = int(bo.get("timeout", "30"))
         raw = bo.get("root_folder", "")
         self.root_folders = [f.strip() for f in raw.split(",") if f.strip()]
+
+        self.universe_map: dict[str, str] = {}
+        if self._cp.has_section("bo_universe_map"):
+            for name, ds_type in self._cp.items("bo_universe_map"):
+                self.universe_map[name.lower()] = ds_type.strip()
 
     @property
     def password(self) -> str:

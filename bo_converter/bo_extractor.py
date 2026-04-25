@@ -11,7 +11,7 @@ from bo_converter.config import BoConfig
 log = logging.getLogger(__name__)
 
 
-def _slugify(name: str) -> str:
+def _sql_filename(name: str) -> str:
     return re.sub(r"[^\w]+", "_", name).strip("_")
 
 
@@ -114,7 +114,7 @@ def _write_sql_files(reports: list[dict], sql_dir: Path) -> int:
             queries.append(f"{header}\n\n{sql}")
         if not queries:
             continue
-        filename = f"{_slugify(name)}.sql"
+        filename = f"{_sql_filename(name)}.sql"
         content = f"-- Report: {name}\n-- Extracted from SAP BusinessObjects\n\n" + "\n\n\n".join(queries) + "\n"
         (sql_dir / filename).write_text(content, encoding="utf-8")
         count += 1
