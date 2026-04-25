@@ -152,3 +152,31 @@ class TestSpecGeneratorCleanRaw:
         assert "NJ-12345" not in result
         assert "NJ-67890" not in result
         assert "Some text" in result
+
+
+class TestBackwardCompatibility:
+    """Ensure that when [site] is absent, all behavior matches original MO hardcoding."""
+
+    def test_default_prefix_is_mo(self, no_site_config):
+        assert no_site_config.site_prefix_re.search("MO-12345")
+        assert not no_site_config.site_prefix_re.search("NJ-12345")
+
+    def test_default_sdt_alias(self, no_site_config):
+        assert no_site_config.sdt_aliases == {"Work Item"}
+
+    def test_default_skip_sections(self, no_site_config):
+        assert no_site_config.skip_sections == {"Introduction", "Performance Wizard Reporting"}
+
+    def test_default_logo_label_mentions_missouri(self, no_site_config):
+        assert "Missouri" in no_site_config.logo_label
+
+    def test_clean_workitem_still_strips_mo(self):
+        raw = "MO-100, Draft, Functional/Business - Report text MO-100a"
+        result = frd_parser.clean_workitem_text(raw)
+        assert result == "Report text"
+
+    def test_parse_summary_still_works_for_mo(self):
+        raw = "MO-111, Draft, Functional/Business - Report Title Tax Report Report Format Paginated"
+        result = frd_parser.parse_summary(raw)
+        assert result["Report Title"] == "Tax Report"
+        assert result["Report Format"] == "Paginated"
