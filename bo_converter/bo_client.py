@@ -159,7 +159,7 @@ class BoClient:
         return name
 
     def _resolve_folder_path(self, folder_id: str, _depth: int = 0) -> str:
-        if not folder_id or _depth > self._MAX_FOLDER_DEPTH:
+        if not folder_id or _depth >= self._MAX_FOLDER_DEPTH:
             return ""
         if folder_id in self._folder_path_cache:
             return self._folder_path_cache[folder_id]

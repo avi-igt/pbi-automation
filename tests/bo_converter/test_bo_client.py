@@ -183,8 +183,8 @@ class TestSafetyGuards:
             with BoClient(bo_config) as client:
                 docs = client.enumerate_webi_documents()
 
-            # Should stop at _MAX_PAGES * _PAGE_SIZE, not loop forever
-            assert len(docs) <= 1000 * _PAGE_SIZE
+            # Should stop at exactly _MAX_PAGES * _PAGE_SIZE, not loop forever
+            assert len(docs) == BoClient._MAX_PAGES * _PAGE_SIZE
 
     def test_folder_path_recursion_depth_limit(self, bo_config):
         """Folder path resolution must not recurse indefinitely on cycles."""
