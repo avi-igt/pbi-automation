@@ -513,6 +513,7 @@ def generate_md(
     datasource_type: str = "semantic_model",
     semantic_model: str = "",
     legacy_universes: list[str] | None = None,
+    legacy_sql: list[dict] | None = None,
 ) -> str:
     lines = []
     title = summary.get("title") or report_name
@@ -669,6 +670,26 @@ def generate_md(
     else:
         lines += ["_No specific business rules defined._"]
     lines.append("")
+
+    if legacy_sql:
+        lines += ["## Original SQL", ""]
+        for dp in legacy_sql:
+            dp_name = dp.get("name", "")
+            universe = dp.get("universe", "")
+            heading_parts = []
+            if dp_name:
+                heading_parts.append(dp_name)
+            if universe:
+                heading_parts.append(f"Universe: `{universe}`")
+            if dp.get("custom_sql"):
+                heading_parts.append("(Custom SQL)")
+            if heading_parts:
+                lines.append(f"### {' — '.join(heading_parts)}")
+                lines.append("")
+            lines.append("```sql")
+            lines.append(dp.get("sql", ""))
+            lines.append("```")
+            lines.append("")
 
     lines += ["## Header / Footer", ""]
     if is_paginated:

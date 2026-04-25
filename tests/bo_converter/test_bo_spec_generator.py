@@ -36,7 +36,13 @@ SAMPLE_EXTRACTED = {
             },
             "requirements": [],
             "_dataproviders": [
-                {"name": "Query 1", "dataSourceName": "Sales Universe", "dataSourceType": "unx"}
+                {
+                    "name": "Query 1",
+                    "dataSourceName": "Sales Universe",
+                    "dataSourceType": "unx",
+                    "sql": "SELECT retailer_no, retailer_name, city, sales_amount\nFROM sales_data\nWHERE date BETWEEN @StartDate AND @EndDate",
+                    "custom_sql": False,
+                }
             ],
         }
     ],
@@ -161,6 +167,35 @@ def test_universe_map_miss_falls_through(tmp_path):
     content = paths[0].read_text()
 
     assert "Snowflake" in content
+
+
+def test_spec_contains_original_sql(tmp_path):
+    json_path = tmp_path / "bo_extracted.json"
+    json_path.write_text(json.dumps(SAMPLE_EXTRACTED))
+    output_dir = tmp_path / "specs"
+
+    paths = generate_specs_from_json(json_path, output_dir)
+    content = paths[0].read_text()
+
+    assert "## Original SQL" in content
+    assert "```sql" in content
+    assert "SELECT retailer_no" in content
+    assert "### Query 1" in content
+    assert "Universe: `Sales Universe`" in content
+
+
+def test_spec_omits_original_sql_when_no_sql(tmp_path):
+    import copy
+    data = copy.deepcopy(SAMPLE_EXTRACTED)
+    del data["reports"][0]["_dataproviders"][0]["sql"]
+    json_path = tmp_path / "bo_extracted.json"
+    json_path.write_text(json.dumps(data))
+    output_dir = tmp_path / "specs"
+
+    paths = generate_specs_from_json(json_path, output_dir)
+    content = paths[0].read_text()
+
+    assert "## Original SQL" not in content
 
 
 def test_skips_reports_with_filter(tmp_path):

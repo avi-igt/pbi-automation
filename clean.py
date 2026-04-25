@@ -2,17 +2,21 @@
 clean.py — utility to wipe generated output directories.
 
 Usage:
-    python clean.py output              # wipe all output/ subdirectories
-    python clean.py output --rdl        # wipe output/rdl/ only
-    python clean.py output --pbip       # wipe output/pbip/ only
-    python clean.py output --models     # wipe output/models/ only
-    python clean.py output --specs      # wipe output/specs/ only
-    python clean.py output --json       # wipe output/json/ only
-    python clean.py output --from-spec  # wipe output/from-spec/ only
-    python clean.py sql                 # wipe report_generator/sql/ (prompts for confirmation)
-    python clean.py sql --yes           # skip confirmation
-    python clean.py output sql          # wipe both
-    python clean.py --dry-run output    # show what would be deleted without deleting
+    python clean.py output                 # wipe all output/ subdirectories
+    python clean.py output --rdl           # wipe output/rdl/ only
+    python clean.py output --pbip          # wipe output/pbip/ only
+    python clean.py output --models        # wipe output/models/ only
+    python clean.py output --specs         # wipe output/specs/ only
+    python clean.py output --json          # wipe output/json/ only
+    python clean.py output --from-spec     # wipe output/from-spec/ only
+    python clean.py output --bo-extracted  # wipe output/bo-extracted/ only
+    python clean.py output --bo-sql        # wipe output/bo-sql/ only
+    python clean.py output --bo-specs      # wipe output/bo-specs/ only
+    python clean.py output --bo-rdl        # wipe output/bo-rdl/ only
+    python clean.py sql                    # wipe report_generator/sql/ (prompts for confirmation)
+    python clean.py sql --yes              # skip confirmation
+    python clean.py output sql             # wipe both
+    python clean.py --dry-run output       # show what would be deleted without deleting
 """
 
 import argparse
@@ -23,12 +27,16 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).parent
 
 _OUTPUT_SUBDIRS: dict[str, Path] = {
-    "rdl":       _REPO_ROOT / "output" / "rdl",
-    "pbip":      _REPO_ROOT / "output" / "pbip",
-    "specs":     _REPO_ROOT / "output" / "specs",
-    "json":      _REPO_ROOT / "output" / "json",
-    "models":    _REPO_ROOT / "output" / "models",
-    "from-spec": _REPO_ROOT / "output" / "from-spec",
+    "rdl":          _REPO_ROOT / "output" / "rdl",
+    "pbip":         _REPO_ROOT / "output" / "pbip",
+    "specs":        _REPO_ROOT / "output" / "specs",
+    "json":         _REPO_ROOT / "output" / "json",
+    "models":       _REPO_ROOT / "output" / "models",
+    "from-spec":    _REPO_ROOT / "output" / "from-spec",
+    "bo-extracted": _REPO_ROOT / "output" / "bo-extracted",
+    "bo-sql":       _REPO_ROOT / "output" / "bo-sql",
+    "bo-specs":     _REPO_ROOT / "output" / "bo-specs",
+    "bo-rdl":       _REPO_ROOT / "output" / "bo-rdl",
 }
 
 _SQL_DIR = _REPO_ROOT / "report_generator" / "sql"
@@ -132,12 +140,16 @@ def main() -> None:
 
     # ── output subcommand ────────────────────────────────────────────────────
     output_parser = subparsers.add_parser("output", help="Clean output/ directory.")
-    output_parser.add_argument("--rdl",       action="store_true", help="Clean output/rdl/")
-    output_parser.add_argument("--pbip",      action="store_true", help="Clean output/pbip/")
-    output_parser.add_argument("--specs",     action="store_true", help="Clean output/specs/")
-    output_parser.add_argument("--json",      action="store_true", help="Clean output/json/")
-    output_parser.add_argument("--models",    action="store_true", help="Clean output/models/")
-    output_parser.add_argument("--from-spec", action="store_true", help="Clean output/from-spec/")
+    output_parser.add_argument("--rdl",          action="store_true", help="Clean output/rdl/")
+    output_parser.add_argument("--pbip",         action="store_true", help="Clean output/pbip/")
+    output_parser.add_argument("--specs",        action="store_true", help="Clean output/specs/")
+    output_parser.add_argument("--json",         action="store_true", help="Clean output/json/")
+    output_parser.add_argument("--models",       action="store_true", help="Clean output/models/")
+    output_parser.add_argument("--from-spec",    action="store_true", help="Clean output/from-spec/")
+    output_parser.add_argument("--bo-extracted", action="store_true", help="Clean output/bo-extracted/")
+    output_parser.add_argument("--bo-sql",       action="store_true", help="Clean output/bo-sql/")
+    output_parser.add_argument("--bo-specs",     action="store_true", help="Clean output/bo-specs/")
+    output_parser.add_argument("--bo-rdl",       action="store_true", help="Clean output/bo-rdl/")
 
     # ── sql subcommand ───────────────────────────────────────────────────────
     sql_parser = subparsers.add_parser(

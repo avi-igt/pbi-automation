@@ -65,6 +65,21 @@ def _extract_universes(report: dict) -> list[str]:
     return result
 
 
+def _extract_sql(report: dict) -> list[dict]:
+    result = []
+    for dp in report.get("_dataproviders", []):
+        sql = dp.get("sql", "")
+        if not sql:
+            continue
+        result.append({
+            "name": dp.get("name", dp.get("id", "")),
+            "universe": dp.get("dataSourceName", ""),
+            "sql": sql,
+            "custom_sql": dp.get("custom_sql", False),
+        })
+    return result
+
+
 _DS_TYPES = {"snowflake", "db2", "semantic_model"}
 
 
@@ -137,6 +152,7 @@ def generate_specs_from_json(
         else:
             model = ""
         universes = _extract_universes(report)
+        sql_blocks = _extract_sql(report)
 
         md = generate_md(
             report_name=name,
@@ -149,6 +165,7 @@ def generate_specs_from_json(
             datasource_type=ds_type,
             semantic_model=model,
             legacy_universes=universes,
+            legacy_sql=sql_blocks,
         )
 
         filename = f"{_md_filename(name)}.md"
