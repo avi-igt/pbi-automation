@@ -24,3 +24,20 @@ env/
 *.pptx
 _make_pptx.py
 cp_review_results.md
+
+# Environment and secrets
+.env
+.env.local
+
+# Test / coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editor swap files
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
