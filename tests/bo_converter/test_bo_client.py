@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 import pytest
 
-from bo_converter.bo_client import BoClient
+from bo_converter.bo_client import BoClient, _PAGE_SIZE
 from tests.bo_converter.conftest import (
     LOGON_RESPONSE,
     DOCUMENTS_LIST,
@@ -162,3 +162,63 @@ class TestSessionCleanup:
                 pass
 
             session.close.assert_called_once()
+
+
+class TestSafetyGuards:
+    def test_enumerate_pagination_guard(self, bo_config):
+        """Enumeration must stop after _MAX_PAGES to prevent infinite loops."""
+        with patch("bo_converter.bo_client.requests.Session") as MockSession:
+            session = MockSession.return_value
+            session.headers = {}
+            resp_logon = MagicMock(status_code=200)
+            resp_logon.json.return_value = LOGON_RESPONSE
+            session.post.return_value = resp_logon
+
+            # Always return a full page (simulating API pagination bug)
+            page = [{"id": str(i), "name": f"doc_{i}"} for i in range(_PAGE_SIZE)]
+            resp_docs = MagicMock(status_code=200)
+            resp_docs.json.return_value = {"documents": {"document": page}}
+            session.get.return_value = resp_docs
+
+            with BoClient(bo_config) as client:
+                docs = client.enumerate_webi_documents()
+
+            # Should stop at _MAX_PAGES * _PAGE_SIZE, not loop forever
+            assert len(docs) <= 1000 * _PAGE_SIZE
+
+    def test_folder_path_recursion_depth_limit(self, bo_config):
+        """Folder path resolution must not recurse indefinitely on cycles."""
+        with patch("bo_converter.bo_client.requests.Session") as MockSession:
+            session = MockSession.return_value
+            session.headers = {}
+            resp_logon = MagicMock(status_code=200)
+            resp_logon.json.return_value = LOGON_RESPONSE
+            session.post.return_value = resp_logon
+
+            host = bo_config.host
+
+            # Folder A points to folder B, B points to A (cycle)
+            def fake_get(url, **kwargs):
+                resp = MagicMock(status_code=200)
+                if "/infostore/A" in url:
+                    resp.json.return_value = {
+                        "name": "FolderA",
+                        "up": {"__deferred": {"uri": f"{host}/infostore/B"}},
+                    }
+                elif "/infostore/B" in url:
+                    resp.json.return_value = {
+                        "name": "FolderB",
+                        "up": {"__deferred": {"uri": f"{host}/infostore/A"}},
+                    }
+                else:
+                    resp.status_code = 404
+                return resp
+
+            session.get.side_effect = fake_get
+
+            with BoClient(bo_config) as client:
+                result = client._resolve_folder_path("A")
+
+            assert isinstance(result, str)
+            # Should terminate, not stack overflow; path has limited depth
+            assert result.count("/") < 55

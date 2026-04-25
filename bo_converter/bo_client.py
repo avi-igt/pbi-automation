@@ -34,6 +34,9 @@ def _as_list(val):
 
 class BoClient:
 
+    _MAX_PAGES = 1000
+    _MAX_FOLDER_DEPTH = 50
+
     def __init__(self, config: BoConfig):
         self._cfg = config
         self._session = requests.Session()
@@ -79,6 +82,7 @@ class BoClient:
     def enumerate_webi_documents(self) -> list[dict]:
         all_docs: list[dict] = []
         offset = 0
+        pages = 0
         while True:
             url = f"{self._cfg.host}/raylight/v1/documents?offset={offset}&limit={_PAGE_SIZE}"
             resp = self._session.get(url, timeout=self._cfg.timeout)
@@ -89,7 +93,8 @@ class BoClient:
             if not page:
                 break
             all_docs.extend(page)
-            if len(page) < _PAGE_SIZE:
+            pages += 1
+            if len(page) < _PAGE_SIZE or pages >= self._MAX_PAGES:
                 break
             offset += _PAGE_SIZE
         log.info("Enumerated %d WebI documents", len(all_docs))
@@ -153,8 +158,8 @@ class BoClient:
         self._folder_cache[folder_id] = name
         return name
 
-    def _resolve_folder_path(self, folder_id: str) -> str:
-        if not folder_id:
+    def _resolve_folder_path(self, folder_id: str, _depth: int = 0) -> str:
+        if not folder_id or _depth > self._MAX_FOLDER_DEPTH:
             return ""
         if folder_id in self._folder_path_cache:
             return self._folder_path_cache[folder_id]
@@ -171,7 +176,7 @@ class BoClient:
             parent_id = unquote(parent_uri.rstrip("/").split("/")[-1])
             # Stop walking at /infostore (the CMS root above Root Folder)
             if parent_id and parent_id != folder_id and parent_id != "infostore":
-                parent_path = self._resolve_folder_path(parent_id)
+                parent_path = self._resolve_folder_path(parent_id, _depth + 1)
                 path = f"{parent_path}/{name}"
             else:
                 path = name
