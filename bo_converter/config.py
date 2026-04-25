@@ -24,7 +24,8 @@ class BoConfig:
         self.username = bo.get("username", "Administrator")
         self.auth_type = bo.get("auth_type", "secEnterprise")
         self.request_delay = float(bo.get("request_delay", "0.2"))
-        self.root_folder = bo.get("root_folder", "")
+        raw = bo.get("root_folder", "")
+        self.root_folders = [f.strip() for f in raw.split(",") if f.strip()]
 
     @property
     def password(self) -> str:

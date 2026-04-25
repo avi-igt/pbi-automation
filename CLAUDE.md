@@ -2,14 +2,15 @@
 
 ## What This Repo Does
 
-`pbi-automation` is a mono-repo containing two complementary Power BI generation tools:
+`pbi-automation` is a mono-repo containing three complementary Power BI generation tools:
 
 | Tool | Entry point | Purpose |
 |---|---|---|
 | **report_generator** | `generate_reports.py` | FRD (.docx) → `.rdl` paginated reports + `.pbip` visual reports |
 | **model_generator** | `generate_models.py` | `semantic.properties` → `.SemanticModel` + `.Report` folder pairs |
+| **bo_converter** | `convert_bo_reports.py` | SAP BusinessObjects WebI → `.md` specs + `.rdl` reports + `.sql` extracted queries |
 
-Both tools write to `output/` and deploy to `lpc-v1-app-ldi-pbi-mos`.
+All tools write to `output/` and deploy to `lpc-v1-app-ldi-pbi-mos`.
 
 ---
 
@@ -19,7 +20,8 @@ Both tools write to `output/` and deploy to `lpc-v1-app-ldi-pbi-mos`.
 pbi-automation/
 ├── generate_reports.py         ← report_generator entry point
 ├── generate_models.py          ← model_generator entry point
-├── pbi.properties              ← report_generator config (workspace, DSNs, keywords)
+├── convert_bo_reports.py       ← bo_converter entry point
+├── pbi.properties              ← report_generator + bo_converter config
 ├── semantic.properties         ← model_generator config (Snowflake, dimensions, models)
 ├── requirements.txt            ← combined dependencies
 │
@@ -51,13 +53,23 @@ pbi-automation/
 │       └── BaseThemes/
 │           └── CY24SU10.json   ← Power BI theme
 │
+├── bo_converter/               ← SAP BO WebI → PBI specs + RDL
+│   ├── config.py               ← reads [bo] section from pbi.properties
+│   ├── bo_client.py            ← BO REST API client (auth, enumerate, extract)
+│   ├── bo_extractor.py         ← Phase 1: enumerate + extract + write JSON/SQL
+│   └── bo_spec_generator.py    ← Phase 2: JSON → .md specs (delegates to spec_generator)
+│
 └── output/
     ├── json/                   ← frd_parsed.json (report_generator)
     ├── specs/                  ← .md spec docs (report_generator)
     ├── rdl/                    ← .rdl files (report_generator)
     ├── pbip/                   ← .pbip folders (report_generator)
     ├── from-spec/              ← Path B outputs (report_generator)
-    └── models/                 ← .SemanticModel + .Report pairs (model_generator)
+    ├── models/                 ← .SemanticModel + .Report pairs (model_generator)
+    ├── bo-extracted/           ← bo_extracted.json (bo_converter Phase 1)
+    ├── bo-sql/                 ← extracted SQL files (bo_converter Phase 1)
+    ├── bo-specs/               ← .md spec files (bo_converter Phase 2)
+    └── bo-rdl/                 ← .rdl files (bo_converter Phase 3)
 ```
 
 ---
@@ -205,12 +217,67 @@ If two dimensions expose a column with the same display name (e.g. both Products
 
 ---
 
+## Tool 3 — bo_converter
+
+### Run
+
+```bash
+export BO_PASSWORD=...
+python convert_bo_reports.py                        # full pipeline (extract + specs + rdl)
+python convert_bo_reports.py --only extract         # Phase 1: BO API -> JSON + SQL
+python convert_bo_reports.py --only specs           # Phase 2: JSON -> .md specs
+python convert_bo_reports.py --only rdl             # Phase 3: .md specs -> .rdl files
+python convert_bo_reports.py --folder "CAP"         # filter by folder (comma-separated)
+python convert_bo_reports.py --report "Daily Sales" # filter by report name
+```
+
+### Configuration (`pbi.properties` — `[bo]` section)
+
+```ini
+[bo]
+host = http://10.17.56.65:8080/biprws
+username = administrator
+# Password via BO_PASSWORD env var — never stored here
+# Comma-separated folder paths. CLI --folder overrides.
+root_folder = Public Folder/Connecticut/Reports
+```
+
+### Pipeline
+
+```
+BO REST API
+    |  Phase 1 (--only extract)
+  bo_extractor.py  ->  output/bo-extracted/bo_extracted.json + output/bo-sql/*.sql
+    |  Phase 2 (--only specs)
+  bo_spec_generator.py  ->  output/bo-specs/*.md
+    |  Phase 3 (--only rdl)
+  spec_to_rdl.py  ->  output/bo-rdl/*.rdl
+```
+
+Phase 2 delegates to `report_generator.spec_generator` for markdown rendering.
+Phase 3 delegates to `report_generator.spec_to_rdl` (existing Path B).
+
+### Multi-folder support
+
+Both `root_folder` config and `--folder` CLI accept comma-separated paths:
+```ini
+root_folder = Public Folder/Connecticut/Reports, User Folders/Administrator/Julia
+```
+
+### SQL extraction
+
+Phase 1 extracts the SQL behind each BO data provider into `output/bo-sql/`. Each `.sql` file
+includes headers: data provider name, universe, data source type, and custom SQL flag.
+
+---
+
 ## Output and Deployment
 
 | Tool | Output folder | Deploy target |
 |---|---|---|
 | report_generator | `output/rdl/`, `output/pbip/` | `lpc-v1-app-ldi-pbi-mos` via Fabric CI/CD |
 | model_generator | `output/models/` | `lpc-v1-app-ldi-pbi-mos` via ALM Toolkit + PR |
+| bo_converter | `output/bo-rdl/`, `output/bo-specs/` | `lpc-v1-app-ldi-pbi-mos` via Fabric CI/CD |
 
 Commit convention for deployment PRs: `MOSC-#### description`
 
@@ -230,5 +297,6 @@ Commit convention for deployment PRs: `MOSC-#### description`
 - Platform: Microsoft Fabric + Power BI Premium capacity
 - `report_generator` deps: `python-docx`, `lxml`
 - `model_generator` deps: `snowflake-connector-python`, `PyYAML`
+- `bo_converter` deps: `requests` (+ reuses `report_generator` for spec/RDL generation)
 - WSL2 + Windows Python (`py.exe`) for SSO Snowflake auth
 - Output is for manual review — do not auto-publish to Fabric/Power BI service
