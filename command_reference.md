@@ -334,6 +334,123 @@ Re-run any model — the new suffix is picked up automatically.
 
 ---
 
+## Tool 3 — bo_converter
+
+Connects to a SAP BusinessObjects server, extracts WebI report metadata (parameters,
+layout, SQL queries, folder paths), and generates `.md` spec files + `.rdl` paginated reports.
+
+### Credentials
+
+```bash
+export BO_PASSWORD=your_password
+```
+
+The username and host are configured in `pbi.properties` under `[bo]`.
+
+---
+
+### Scenario S — Full pipeline (extract + specs + rdl)
+
+```bash
+python convert_bo_reports.py
+```
+
+Outputs:
+- `output/bo-extracted/bo_extracted.json` — extracted metadata
+- `output/bo-sql/*.sql` — extracted SQL queries per report
+- `output/bo-specs/*.md` — spec review files
+- `output/bo-rdl/**/*.rdl` — paginated reports
+
+---
+
+### Scenario T — Extract only (BO API -> JSON + SQL)
+
+```bash
+python convert_bo_reports.py --only extract
+```
+
+Outputs:
+- `output/bo-extracted/bo_extracted.json`
+- `output/bo-sql/*.sql`
+
+---
+
+### Scenario U — Generate specs only (JSON -> .md)
+
+Requires JSON from a prior extract.
+
+```bash
+python convert_bo_reports.py --only specs
+```
+
+Output: `output/bo-specs/*.md`
+
+---
+
+### Scenario V — Generate RDL only (.md -> .rdl)
+
+Requires spec files from a prior specs run.
+
+```bash
+python convert_bo_reports.py --only rdl
+```
+
+Output: `output/bo-rdl/**/*.rdl`
+
+---
+
+### Scenario W — Filter by folder
+
+Filter extraction to reports under specific BO folders (substring, case-insensitive).
+
+```bash
+# Single folder
+python convert_bo_reports.py --folder "Connecticut/Reports/CAP"
+
+# Multiple folders (comma-separated)
+python convert_bo_reports.py --folder "Connecticut/Reports/CAP, Connecticut/Reports/Finance"
+
+# User folders
+python convert_bo_reports.py --folder "Administrator/Julia"
+```
+
+The default folder filter is configured in `pbi.properties`:
+```ini
+[bo]
+root_folder = Public Folder/Connecticut/Reports
+```
+
+`--folder` overrides the config value. Both support comma-separated lists.
+
+---
+
+### Scenario X — Filter by report name
+
+```bash
+python convert_bo_reports.py --report "Daily Sales"
+```
+
+Applies to all phases — extract filters documents, specs/rdl filter by filename.
+
+---
+
+### Scenario Y — Custom output directory
+
+```bash
+python convert_bo_reports.py -o /tmp/bo-output
+```
+
+---
+
+### Scenario Z — Verbose logging
+
+```bash
+python convert_bo_reports.py -v
+python convert_bo_reports.py --verbose --only extract
+```
+
+---
+
 ## Quick Reference
 
 | Goal | Command |
@@ -350,3 +467,9 @@ Re-run any model — the new suffix is picked up automatically.
 | All models | `venv/bin/python generate_models.py` |
 | One model | `venv/bin/python generate_models.py --model <key>` |
 | Target env | `venv/bin/python generate_models.py --model <key> --env c1v1` |
+| BO full pipeline | `python convert_bo_reports.py` |
+| BO extract only | `python convert_bo_reports.py --only extract` |
+| BO specs only | `python convert_bo_reports.py --only specs` |
+| BO RDL only | `python convert_bo_reports.py --only rdl` |
+| BO filter folder | `python convert_bo_reports.py --folder "CAP, Finance"` |
+| BO filter report | `python convert_bo_reports.py --report "Daily Sales"` |

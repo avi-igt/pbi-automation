@@ -2,14 +2,15 @@
 
 ## Overview
 
-`pbi-automation` is the Power BI automation platform for the Brightstar Lottery Performance Wizard product. It contains two independent tools that share a repo, a combined `requirements.txt`, and common output/template directories:
+`pbi-automation` is the Power BI automation platform for the Brightstar Lottery Performance Wizard product. It contains three independent tools that share a repo, a combined `requirements.txt`, and common output/template directories:
 
 | Tool | Package | Entry point | Datasource |
 |---|---|---|---|
 | report-generator | `report_generator/` | `generate_reports.py` | FRD `.docx` Word file |
 | model-generator | `model_generator/` | `generate_models.py` | Snowflake via `semantic.properties` |
+| bo-converter | `bo_converter/` | `convert_bo_reports.py` | SAP BusinessObjects REST API via `pbi.properties` |
 
-Each tool has its own config file and can be run independently. They do not call each other.
+Each tool has its own config file and can be run independently. bo-converter delegates to `report_generator` modules for spec generation and RDL output (Path B).
 
 ---
 
@@ -174,6 +175,75 @@ _REPO_ROOT = Path(__file__).parent.parent  # → pbi-automation/
 
 ---
 
+## bo_converter Architecture
+
+### Purpose
+
+Extracts metadata from SAP BusinessObjects WebI reports via the BO REST API (biprws/raylight) and produces Power BI report artifacts. The tool handles the full lifecycle: enumerate documents, extract parameters/layout/SQL, generate `.md` specs, and produce `.rdl` paginated reports.
+
+### Layers
+
+```
+BO REST API (biprws)
+  └── bo_client.py         ← API client: auth, enumerate, extract per-report metadata
+        └── bo_extractor.py    ← Phase 1 orchestrator: filter, extract all, write JSON + SQL
+              └── bo_spec_generator.py  ← Phase 2: normalise + delegate to report_generator.spec_generator
+                    └── spec_to_rdl.py      ← Phase 3: existing Path B (report_generator module)
+```
+
+### bo_client.py — API Client Layer
+
+Wraps the SAP BO REST API. Used as a context manager (`with BoClient(config) as client:`), which handles logon/logoff lifecycle and maintains an HTTP session.
+
+Key methods:
+- `enumerate_webi_documents()` — paginated GET of `/raylight/v1/documents` (page size 50)
+- `extract_report(doc)` — extracts parameters, data providers, layout columns, SQL, and folder path for one document
+- `resolve_folder_path(doc)` — resolves `folderId` to a full path by walking the `up.__deferred.uri` chain, maps BO "Root Folder" to "Public Folder"
+
+Folder paths are cached in `_folder_path_cache` to avoid redundant API calls across documents in the same folder tree.
+
+SQL extraction uses the `/raylight/v1/documents/{id}/dataproviders/{dpId}/queryplan` endpoint. Custom/freehand SQL is detected via the `@custom` attribute.
+
+### bo_extractor.py — Phase 1 Orchestrator
+
+`extract_all()` coordinates enumeration, filtering, extraction, and output:
+
+1. Enumerate all WebI documents via `bo_client`
+2. Apply folder filter (comma-separated, from `root_folder` config or `--folder` CLI)
+3. Apply report name filter (from `--report` CLI)
+4. Extract each document via `bo_client.extract_report()`
+5. Write `bo_extracted.json` to `output/bo-extracted/`
+6. Write per-report `.sql` files to `output/bo-sql/`
+
+Folder filtering supports multiple paths (comma-separated). Each path is matched as a case-insensitive substring against the resolved folder path.
+
+### bo_spec_generator.py — Phase 2
+
+Normalises BO JSON into the shape that `report_generator.spec_generator.generate_md()` expects, then delegates rendering. This avoids duplicating any markdown formatting logic. Also uses `report_generator.config` for datasource and semantic model inference via keyword matching.
+
+### Phase 3 — RDL Generation
+
+Phase 3 is delegated entirely to the existing `report_generator.spec_to_rdl.generate_rdl_from_specs_dir()`. No bo-converter-specific code is involved — the `.md` specs produced by Phase 2 are compatible with the Path B parser (`spec_parser.py`).
+
+### config.py — Configuration
+
+Reads the `[bo]` section from `pbi.properties`:
+- `host` — BO REST API base URL
+- `username` — BO logon username (password via `BO_PASSWORD` env var)
+- `root_folders` — list of folder paths to filter (comma-separated in config)
+- `request_delay` — seconds between API calls (rate limiting)
+
+### Path Resolution
+
+```python
+# bo_converter/config.py
+_REPO_ROOT = Path(__file__).parent.parent  # → pbi-automation/
+```
+
+`pbi.properties` → `pbi-automation/pbi.properties`
+
+---
+
 ## Shared Conventions
 
 ### Config file format
@@ -190,13 +260,17 @@ output/
   pbip/           ← report_generator: .pbip folders
   from-spec/      ← report_generator: Path B outputs
   models/         ← model_generator: .SemanticModel + .Report pairs
+  bo-extracted/   ← bo_converter: bo_extracted.json (Phase 1)
+  bo-sql/         ← bo_converter: extracted SQL files (Phase 1)
+  bo-specs/       ← bo_converter: .md spec files (Phase 2)
+  bo-rdl/         ← bo_converter: .rdl files (Phase 3)
 ```
 
-The two tools write to separate output subdirectories and do not interfere with each other.
+The three tools write to separate output subdirectories and do not interfere with each other.
 
 ### No shared runtime state
 
-The two tools have no shared in-memory state. They can both be imported in the same Python process without conflict, but they do not call each other's code.
+The three tools have no shared in-memory state. They can all be imported in the same Python process without conflict. bo-converter imports `report_generator` modules for spec generation and RDL output but does not modify any shared state.
 
 ### Templates
 
@@ -226,6 +300,16 @@ The two tools have no shared in-memory state. They can both be imported in the s
 | New dimension | Add entry to `[dimensions]` + Strategy A YAML (or Strategy B inline) — no code changes |
 | New environment | Add `[snowflake.<env>]` section to `semantic.properties` — no code changes |
 | New TMDL content | Add builder function to `tmdl_builder.py` and call from `model_generator.py` |
+
+### bo_converter
+
+| What | Where |
+|---|---|
+| New BO server | Update `[bo]` section in `pbi.properties` (host, username) — no code changes |
+| Different folder tree | Update `root_folder` in `pbi.properties` or use `--folder` CLI — no code changes |
+| Multiple folder trees | Comma-separate paths in `root_folder` or `--folder` — no code changes |
+| New output phase | Add phase in `convert_bo_reports.py` `main()` and wire into `--only` choices |
+| PBIP output from BO | Use existing `spec_to_pbip.py` against `output/bo-specs/` (already compatible) |
 
 ---
 

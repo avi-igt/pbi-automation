@@ -9,9 +9,9 @@
 [![Power BI](https://img.shields.io/badge/Power%20BI-Fabric-F2C811?style=flat-square&logo=powerbi&logoColor=black)](https://app.powerbi.com)
 [![Snowflake](https://img.shields.io/badge/Snowflake-connected-29B5E8?style=flat-square&logo=snowflake&logoColor=white)](https://www.snowflake.com/)
 
-**Two Power BI automation tools for Brightstar Lottery — one repo.**
+**Three Power BI automation tools for Brightstar Lottery — one repo.**
 
-[Quick Start](#quick-start) · [Pipeline](#pipeline) · [report-generator](#report-generator) · [model-generator](#model-generator) · [Full Lifecycle](#full-development-lifecycle) · [report_generator — How To](#report_generator--how-to) · [model_generator — How To](#model_generator--how-to) · [Utilities](#utilities) · [Repository Structure](#repository-structure) · [Troubleshooting](#troubleshooting) · [Command Reference](command_reference.md)
+[Quick Start](#quick-start) · [Pipeline](#pipeline) · [report-generator](#report-generator) · [model-generator](#model-generator) · [bo-converter](#bo-converter) · [Full Lifecycle](#full-development-lifecycle) · [report_generator — How To](#report_generator--how-to) · [model_generator — How To](#model_generator--how-to) · [Utilities](#utilities) · [Repository Structure](#repository-structure) · [Troubleshooting](#troubleshooting) · [Command Reference](command_reference.md)
 
 </div>
 
@@ -23,8 +23,9 @@
 |---|---|---|
 | **report-generator** | `generate_reports.py` | FRD `.docx` → `.rdl` paginated reports + `.pbip` visual reports + `.md` spec docs |
 | **model-generator** | `generate_models.py` | `semantic.properties` → `.SemanticModel` + `.Report` folder pairs (TMDL, Snowflake-backed) |
+| **bo-converter** | `convert_bo_reports.py` | SAP BusinessObjects WebI → `.md` spec files + `.rdl` paginated reports + `.sql` extracted queries |
 
-Both tools share a single repo, a single `requirements.txt`, and common `templates/` + `output/` directories. They are otherwise independent — each has its own config file and entry point.
+All three tools share a single repo, a single `requirements.txt`, and common `templates/` + `output/` directories. They are otherwise independent — each has its own config file and entry point.
 
 ---
 
@@ -52,6 +53,26 @@ python generate_models.py --list
 # Generate all models (requires Snowflake credentials — see Authentication below)
 export SNOWFLAKE_USER=your.name@ourlotto.com
 python generate_models.py
+```
+
+### bo-converter
+
+```bash
+# Full pipeline (extract + specs + rdl)
+export BO_PASSWORD=...
+python convert_bo_reports.py
+
+# Individual phases
+python convert_bo_reports.py --only extract    # Phase 1: BO API -> JSON + SQL files
+python convert_bo_reports.py --only specs      # Phase 2: JSON -> .md specs
+python convert_bo_reports.py --only rdl        # Phase 3: .md specs -> .rdl files
+
+# Filter by folder or report name
+python convert_bo_reports.py --folder "Sales Reports"
+python convert_bo_reports.py --report "Daily Sales"
+
+# Multiple folders (comma-separated)
+python convert_bo_reports.py --folder "Connecticut/Reports, Administrator/Julia"
 ```
 
 ---
@@ -328,6 +349,75 @@ Both folders must be deployed together to `lpc-v1-app-ldi-pbi-mos`.
 1. Copy `output/models/<Name>.SemanticModel/` and `output/models/<Name>.Report/` to `lpc-v1-app-ldi-pbi-mos`
 2. Run ALM Toolkit diff
 3. Open a PR with `MOSC-####` commit
+
+---
+
+## bo-converter
+
+Extracts SAP BusinessObjects WebI report metadata via the BO REST API and generates Power BI `.md` spec files and `.rdl` paginated reports. Also extracts the SQL behind each BO report into standalone `.sql` files.
+
+### Configuration
+
+Add a `[bo]` section to `pbi.properties`:
+
+```ini
+[bo]
+host = http://10.17.56.65:8080/biprws
+username = administrator
+# Password via BO_PASSWORD env var — never stored here
+# Root folder path(s) — only extract reports under these folder trees.
+# Comma-separated for multiple folders. Leave empty to extract all reports.
+# CLI --folder overrides this setting.
+root_folder = Public Folder/Connecticut/Reports
+```
+
+Set `BO_PASSWORD` as an environment variable (never in config).
+
+### Pipeline
+
+```
+BO REST API
+    |  Phase 1 (--only extract)
+  bo_extractor.py  ->  output/bo-extracted/bo_extracted.json
+                   ->  output/bo-sql/*.sql
+    |  Phase 2 (--only specs)
+  bo_spec_generator.py  ->  output/bo-specs/*.md
+    |  Phase 3 (--only rdl)
+  spec_to_rdl.py  ->  output/bo-rdl/*.rdl
+```
+
+### Workflow
+
+1. `python convert_bo_reports.py --only extract` — Pull metadata + SQL from BO
+2. Inspect `output/bo-extracted/bo_extracted.json` — Sanity check
+3. Inspect `output/bo-sql/*.sql` — Review extracted SQL queries
+4. `python convert_bo_reports.py --only specs` — Generate .md spec files
+5. Edit `output/bo-specs/*.md` — Human review, confirm models
+6. `python convert_bo_reports.py --only rdl` — Generate .rdl files from specs
+
+Or run the full pipeline in one command: `python convert_bo_reports.py`
+
+### Folder filtering
+
+The `root_folder` setting in `pbi.properties` controls which BO folders are extracted. Supports comma-separated values for multiple folders:
+
+```ini
+# Single folder
+root_folder = Public Folder/Connecticut/Reports
+
+# Multiple folders
+root_folder = Public Folder/Connecticut/Reports, User Folders/Administrator/Julia
+```
+
+The CLI `--folder` flag overrides the config (also comma-separated):
+
+```bash
+python convert_bo_reports.py --folder "Connecticut/Reports/CAP, Connecticut/Reports/Finance"
+```
+
+### SQL extraction
+
+Phase 1 automatically extracts the SQL query behind each BO report data provider into `output/bo-sql/`. Each `.sql` file includes headers identifying the data provider, universe, and data source type. Reports with multiple data providers produce a single `.sql` file with all queries separated by headers. Custom/freehand SQL is flagged in the header.
 
 ---
 
@@ -675,8 +765,9 @@ python clean.py --dry-run output    # preview what would be deleted without dele
 pbi-automation/
 ├── generate_reports.py         # report-generator entry point
 ├── generate_models.py          # model-generator entry point
+├── convert_bo_reports.py       # bo-converter entry point
 ├── clean.py                    # utility: wipe output/ and/or report_generator/sql/
-├── pbi.properties              # report-generator config (workspace, DSNs, keywords)
+├── pbi.properties              # report-generator + bo-converter config
 ├── semantic.properties         # model-generator config (Snowflake, dimensions, models)
 ├── requirements.txt            # combined deps
 │
@@ -710,6 +801,12 @@ pbi-automation/
 │       └── BaseThemes/
 │           └── CY24SU10.json   # Power BI theme bundled into every .Report folder
 │
+├── bo_converter/               # bo-converter source package
+│   ├── config.py               # reads [bo] section from pbi.properties
+│   ├── bo_client.py            # BO REST API client (auth, enumerate, extract)
+│   ├── bo_extractor.py         # Phase 1 orchestrator: enumerate + extract + write JSON/SQL
+│   └── bo_spec_generator.py    # Phase 2: JSON → .md specs (delegates to spec_generator)
+│
 ├── assets/
 │   ├── banner.svg
 │   └── pipeline.svg
@@ -720,7 +817,11 @@ pbi-automation/
     ├── rdl/                    # .rdl files (report-generator)
     ├── pbip/                   # .pbip folders (report-generator)
     ├── from-spec/              # Path B outputs (report-generator)
-    └── models/                 # .SemanticModel + .Report pairs (model-generator)
+    ├── models/                 # .SemanticModel + .Report pairs (model-generator)
+    ├── bo-extracted/           # bo_extracted.json (bo-converter Phase 1)
+    ├── bo-sql/                 # extracted SQL files (bo-converter Phase 1)
+    ├── bo-specs/               # .md spec files (bo-converter Phase 2)
+    └── bo-rdl/                 # .rdl files (bo-converter Phase 3)
 ```
 
 ---
