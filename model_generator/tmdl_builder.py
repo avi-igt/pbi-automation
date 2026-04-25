@@ -190,7 +190,10 @@ def _col_block(
     spaces). sourceColumn always points to the physical/PQ column name.
     """
     tmdl_id = display_name if (display_name and display_name != col_name) else col_name
-    tmdl_ref = f"'{tmdl_id}'" if " " in tmdl_id else tmdl_id
+    if " " in tmdl_id or "'" in tmdl_id:
+        tmdl_ref = "'" + tmdl_id.replace("'", "''") + "'"
+    else:
+        tmdl_ref = tmdl_id
 
     lines = [f"\tcolumn {tmdl_ref}"]
     lines.append(f"\t\tdataType: {data_type}")
