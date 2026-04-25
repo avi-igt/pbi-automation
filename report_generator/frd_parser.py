@@ -41,6 +41,13 @@ def _clean_ws(text: str) -> str:
     return _ZWS.sub(" ", text).strip()
 
 
+def _wi_re():
+    """Work item regex from config, e.g. matches 'MO-12345' or 'NJ-67890'."""
+    if _cfg is not None:
+        return _cfg.site_prefix_re
+    return re.compile(r"(?:MO)-\d+")
+
+
 def extract_sdt_text(sdt_elem):
     """Extract visible text from an SDT element, skipping vanished (hidden) runs."""
     texts = []
@@ -57,17 +64,19 @@ def extract_sdt_text(sdt_elem):
 
 def clean_workitem_text(raw: str) -> str:
     """Strip ADO work item header/footer noise from SDT text."""
-    raw = re.sub(r"^MO-\d+,\s*\w+,\s*[\w/]+\s*-\s*", "", raw).strip()
-    raw = re.sub(r"\s*MO-\d+,\s*\w+,\s*[\w/]+\s*-\s*MO-\d+\w*\s*$", "", raw).strip()
-    raw = re.sub(r"\s*MO-\d+\w*\s*$", "", raw).strip()
+    wi = _wi_re().pattern
+    raw = re.sub(rf"^{wi},\s*\w+,\s*[\w/]+\s*-\s*", "", raw).strip()
+    raw = re.sub(rf"\s*{wi},\s*\w+,\s*[\w/]+\s*-\s*{wi}\w*\s*$", "", raw).strip()
+    raw = re.sub(rf"\s*{wi}\w*\s*$", "", raw).strip()
     return _clean_ws(raw)
 
 
 def parse_summary(raw: str) -> dict:
     """Parse the flat summary SDT text into a structured dict."""
-    raw = re.sub(r"^MO-\d+,\s*\w+,\s*[\w/]+\s*-", "", raw).strip()
-    raw = re.sub(r"\s*MO-\d+,\s*\w+,\s*[\w/]+\s*-\s*MO-\d+\w*\s*$", "", raw).strip()
-    raw = re.sub(r"\s*MO-\d+\w*\s*$", "", raw).strip()
+    wi = _wi_re().pattern
+    raw = re.sub(rf"^{wi},\s*\w+,\s*[\w/]+\s*-", "", raw).strip()
+    raw = re.sub(rf"\s*{wi},\s*\w+,\s*[\w/]+\s*-\s*{wi}\w*\s*$", "", raw).strip()
+    raw = re.sub(rf"\s*{wi}\w*\s*$", "", raw).strip()
     raw = _clean_ws(raw)
 
     fields = [
@@ -224,14 +233,15 @@ def _split_columns(text: str) -> list:
 
 def parse_requirements(raw_list: list) -> list:
     """Return list of requirement dicts with ADO work item ID and text."""
+    wi = _wi_re().pattern
     reqs = []
     for raw in raw_list:
         raw = _clean_ws(raw)
-        match = re.match(r"(MO-\d+),\s*(\w+),\s*([\w/]+)\s*-\s*(.*)", raw, re.DOTALL)
+        match = re.match(rf"({wi}),\s*(\w+),\s*([\w/]+)\s*-\s*(.*)", raw, re.DOTALL)
         if match:
             work_item_id, status, req_type, text = match.groups()
-            text = re.sub(r"\s*MO-\d+,\s*\w+,\s*[\w/]+\s*-\s*MO-\d+\w*\s*$", "", text).strip()
-            text = re.sub(r"\s*MO-\d+\w*\s*$", "", _clean_ws(text)).strip()
+            text = re.sub(rf"\s*{wi},\s*\w+,\s*[\w/]+\s*-\s*{wi}\w*\s*$", "", text).strip()
+            text = re.sub(rf"\s*{wi}\w*\s*$", "", _clean_ws(text)).strip()
             reqs.append({
                 "id": work_item_id,
                 "status": status,
@@ -260,7 +270,8 @@ def parse_frd(docx_path: str) -> dict:
     current_h2 = ""
     current_h3 = ""
     current_report = None
-    skip_sections = {"Introduction", "Performance Wizard Reporting"}
+    skip_sections = _cfg.skip_sections if _cfg else {"Introduction", "Performance Wizard Reporting"}
+    valid_aliases = _cfg.sdt_aliases if _cfg else {"Work Item"}
 
     for elem in doc.element.body.iter():
         tag = elem.tag.split("}")[-1]
@@ -306,7 +317,7 @@ def parse_frd(docx_path: str) -> dict:
         elif tag == "sdt":
             alias = elem.find(".//w:alias", NS)
             alias_val = _attr(alias, "val") if alias is not None else ""
-            if alias_val == "Work Item" and current_report is not None:
+            if alias_val in valid_aliases and current_report is not None:
                 raw_text = extract_sdt_text(elem)
                 if raw_text:
                     sec = current_h3.lower()
@@ -322,6 +333,7 @@ def parse_frd(docx_path: str) -> dict:
                         current_report["_requirements_raw"].append(raw_text)
 
     # Second pass: structure each report
+    wi = _wi_re().pattern
     structured = []
     for report in reports.values():
         summary = parse_summary(report.get("_summary_raw") or "")
@@ -346,7 +358,7 @@ def parse_frd(docx_path: str) -> dict:
             "summary": summary.get("Summary", ""),
             "sort": summary.get("Sort", ""),
             "target_folder": summary.get("New Folder") or summary.get("Folder", ""),
-            "notes": re.sub(r"\s*MO-\d+[,\w]*\s*$", "", summary.get("Notes", "")).strip(),
+            "notes": re.sub(rf"\s*{wi}[,\w]*\s*$", "", summary.get("Notes", "")).strip(),
             "parameters": parse_parameters(report["_params_raw"]),
             "filters": parse_filters(report["_filters_raw"]),
             "layout": parse_layout(report["_layout_raw"]),

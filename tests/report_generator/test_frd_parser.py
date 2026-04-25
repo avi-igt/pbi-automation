@@ -79,3 +79,55 @@ class TestSiteConfigLoading:
 
     def test_default_logo_label(self, no_site_config):
         assert "logo" in no_site_config.logo_label.lower()
+
+
+from report_generator import frd_parser
+
+
+class TestCleanWorkitemText:
+    def test_strips_mo_prefix(self):
+        raw = "MO-12345, Draft, Functional/Business - Some report text MO-12345a"
+        result = frd_parser.clean_workitem_text(raw)
+        assert "MO-12345" not in result
+        assert "Some report text" in result
+
+    def test_strips_nj_prefix(self, nj_config, monkeypatch):
+        monkeypatch.setattr(frd_parser, "_cfg", nj_config)
+        raw = "NJ-67890, Draft, Functional/Business - Some report text NJ-67890a"
+        result = frd_parser.clean_workitem_text(raw)
+        assert "NJ-67890" not in result
+        assert "Some report text" in result
+
+    def test_no_prefix_passthrough(self):
+        result = frd_parser.clean_workitem_text("Plain text with no work items")
+        assert result == "Plain text with no work items"
+
+
+class TestParseSummary:
+    def test_strips_mo_header(self):
+        raw = "MO-111, Draft, Functional/Business - Report Title My Report Report Format Paginated"
+        result = frd_parser.parse_summary(raw)
+        assert result.get("Report Title") == "My Report"
+
+    def test_strips_nj_header(self, nj_config, monkeypatch):
+        monkeypatch.setattr(frd_parser, "_cfg", nj_config)
+        raw = "NJ-222, Draft, Functional/Business - Report Title My Report Report Format Paginated"
+        result = frd_parser.parse_summary(raw)
+        assert result.get("Report Title") == "My Report"
+
+
+class TestParseRequirements:
+    def test_extracts_mo_work_item(self):
+        raw = "MO-100, Draft, Functional/Business - Must show total sales MO-100"
+        result = frd_parser.parse_requirements([raw])
+        assert len(result) == 1
+        assert result[0]["id"] == "MO-100"
+        assert "total sales" in result[0]["text"]
+
+    def test_extracts_nj_work_item(self, nj_config, monkeypatch):
+        monkeypatch.setattr(frd_parser, "_cfg", nj_config)
+        raw = "NJ-200, Draft, Functional/Business - Must show total sales NJ-200"
+        result = frd_parser.parse_requirements([raw])
+        assert len(result) == 1
+        assert result[0]["id"] == "NJ-200"
+        assert "total sales" in result[0]["text"]
