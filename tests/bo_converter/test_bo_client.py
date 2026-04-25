@@ -146,3 +146,19 @@ class TestExtractReport:
             assert report["name"] == "Test"
             assert report["report_format"] == "Paginated"
             assert report["datasource_type"] == "snowflake"
+
+
+class TestSessionCleanup:
+    def test_exit_closes_session(self, bo_config):
+        with patch("bo_converter.bo_client.requests.Session") as MockSession:
+            session = MockSession.return_value
+            session.headers = {}
+            resp = MagicMock(status_code=200)
+            resp.json.return_value = LOGON_RESPONSE
+            session.post.return_value = resp
+            session.delete.return_value = MagicMock(status_code=200)
+
+            with BoClient(bo_config) as client:
+                pass
+
+            session.close.assert_called_once()

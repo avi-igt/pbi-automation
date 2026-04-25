@@ -50,6 +50,7 @@ class BoClient:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.logoff()
+        self._session.close()
         return False
 
     def logon(self):
@@ -72,7 +73,7 @@ class BoClient:
             url = f"{self._cfg.host}/logon/long"
             self._session.delete(url, timeout=self._cfg.timeout)
             log.info("Logged off from %s", self._cfg.host)
-        except Exception as e:
+        except requests.RequestException as e:
             log.warning("Logoff failed: %s", e)
 
     def enumerate_webi_documents(self) -> list[dict]:
