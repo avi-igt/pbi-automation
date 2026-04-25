@@ -140,7 +140,7 @@ def test_extract_all_records_errors(bo_config, tmp_path):
         session.get.side_effect = [
             _make_resp(DOCUMENTS_LIST),  # enumerate
             # doc 100: folder resolve fails with exception
-            MagicMock(status_code=200, json=MagicMock(side_effect=Exception("parse error"))),
+            MagicMock(status_code=200, json=MagicMock(side_effect=ValueError("parse error"))),
             # doc 101: successful extraction
             _make_resp(FOLDER_51),              # folder path: folder 51
             _make_resp(ROOT_FOLDER),            # folder path: parent (root)

@@ -5,6 +5,8 @@ import logging
 import re
 from pathlib import Path
 
+import requests
+
 from bo_converter.bo_client import BoClient
 from bo_converter.config import BoConfig
 
@@ -60,7 +62,7 @@ def extract_all(
             try:
                 report = client.extract_report(doc)
                 reports.append(report)
-            except Exception as e:
+            except (requests.RequestException, ValueError, KeyError) as e:
                 log.warning("Failed to extract %s (id=%s): %s", doc_name, doc_id, e)
                 errors.append({
                     "id": str(doc_id),
