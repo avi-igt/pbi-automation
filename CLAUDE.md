@@ -21,13 +21,14 @@ pbi-automation/
 ├── generate_reports.py         ← report_generator entry point
 ├── generate_models.py          ← model_generator entry point
 ├── convert_bo_reports.py       ← bo_converter entry point
+├── clean.py                    ← removes output/ artifacts
 ├── pbi.properties              ← report_generator + bo_converter config
 ├── semantic.properties         ← model_generator config (Snowflake, dimensions, models)
 ├── requirements.txt            ← combined dependencies
 │
 ├── report_generator/           ← FRD → RDL/PBIP pipeline
-│   ├── config.py               ← reads pbi.properties
-│   ├── frd_parser.py           ← .docx → structured JSON
+│   ├── config.py               ← reads pbi.properties; PbiConfig class
+│   ├── frd_parser.py           ← .docx → structured JSON (SDT content controls via lxml)
 │   ├── rdl_generator.py        ← JSON → .rdl (paginated reports)
 │   ├── pbip_generator.py       ← JSON → .pbip (visual reports)
 │   ├── spec_generator.py       ← JSON → .md spec docs
@@ -46,9 +47,7 @@ pbi-automation/
 │   ├── report_builder.py       ← .Report content builders
 │   ├── model_generator.py      ← orchestrates one model end-to-end
 │   ├── DESIGN.md               ← full design document for model_generator
-│   ├── dimensions/             ← Strategy A YAML files
-│   │   ├── dates.yaml
-│   │   └── products.yaml
+│   ├── dimensions/             ← Strategy A YAML files (dates, products, locations, terminals, draw_information)
 │   └── templates/
 │       └── BaseThemes/
 │           └── CY24SU10.json   ← Power BI theme
@@ -58,6 +57,14 @@ pbi-automation/
 │   ├── bo_client.py            ← BO REST API client (auth, enumerate, extract)
 │   ├── bo_extractor.py         ← Phase 1: enumerate + extract + write JSON/SQL
 │   └── bo_spec_generator.py    ← Phase 2: JSON → .md specs (delegates to spec_generator)
+│
+├── tests/                      ← pytest test suite
+│   ├── bo_converter/           ← bo_client, bo_extractor, bo_spec_generator, config, integration
+│   ├── model_generator/        ← snowflake_client, tmdl_builder, config
+│   └── report_generator/       ← frd_parser (multi-site config, parsing, backward compat)
+│
+├── assets/                     ← banner.svg, pipeline.svg (README diagrams)
+├── docs/                       ← plans and design documents
 │
 └── output/
     ├── json/                   ← frd_parsed.json (report_generator)
@@ -105,26 +112,60 @@ Path B (spec-first review workflow):
 ### Configuration (`pbi.properties`)
 
 ```ini
-workspace = Missouri - D1V1
+[fabric]
+workspace_name = Missouri - D1V1
+tenant_id      = f0b72488-...
+
+[site]
+site_prefix    = MO
+sdt_aliases    = Work Item
+skip_sections  = Introduction, Performance Wizard Reporting
+logo_label     = Missouri Lottery logo (top-left of header)
+
+[datasets]
+MO_Sales       = 45ddd7fc-...
+MO_DrawData    = dfff48d9-...
+# ... (one entry per semantic model)
 
 [datasource_keywords]
 default_datasource = semantic_model   # fallback when no keyword matches (snowflake|db2|semantic_model)
-snowflake = rdst, tmir, security, transaction
-db2 = claims, payments, annuities, debt
+snowflake = RDST, TMIR, Security
+db2       = claim, payment, annuities, debt, setoff, player, ssn, claimant, 1098
 
 [model_keywords]
-MO_Sales = sales, validations, cancels
-MO_DrawData = draw, game
-MO_CoreTables = retailer list, chain store   # last entry = default fallback
+MO_LVMTransactional = lvm transaction, lvm transactional
+MO_DrawData         = draw game, jackpot, winning number
+MO_Sales            = sales, validations, cancels, retailer
+# ... (order matters — first match wins; broadest last)
 
 [odbc]
-db2_dsn = MOS-Q1-BOADB
-sfodbc_dsn = MOS-PX-SFODBC
+db2_source_name  = BOADB
+db2_dsn          = MOS-Q1-BOADB
+sfodbc_source_name = LPC_E2_SFODBC
+sfodbc_dsn       = MOS-PX-SFODBC
 
 [snowflake_native]
-host = igtgloballottery-igtpxv1_ldi.privatelink.snowflakecomputing.com
+host           = igtgloballottery-igtpxv1_ldi.privatelink.snowflakecomputing.com
 implementation = 2.0
+
+[rdl]
+page_width = 11in
+page_height = 8.5in
+# ... (margins, fonts, timezone)
+
+[pbip]
+canvas_width = 1280
+canvas_height = 720
+# ... (theme, brand colors)
+
+[paths]
+rdl_template = templates/MO_Report_Template.rdl
+frd_docx     = MO - Performance Wizard Ad Hoc Reporting FRD v1.0.docx
+sql_dir      = sql
 ```
+
+`PbiConfig(properties_path=None)` loads `pbi.properties` by default; pass a custom path
+for testing or alternate jurisdictions.
 
 **Never hardcode** DSN names, workspace names, or dataset names — always read from
 `pbi.properties` via `report_generator/config.py`.
@@ -248,23 +289,20 @@ python convert_bo_reports.py --report "Daily Sales" # filter by report name
 
 ```ini
 [bo]
-host = http://10.17.56.65:8080/biprws
+host = http://njsqgriarpiap01:8080/biprws
 username = administrator
 # Password via BO_PASSWORD env var — never stored here
 # Comma-separated folder paths. CLI --folder overrides.
-root_folder = Public Folder/Connecticut/Reports
+root_folder = Public Folder/New Jersey/Reports
 # HTTP timeout in seconds for BO API calls (default: 30)
 timeout = 30
 
-[bo_universe_map]
-# Explicit BO universe name → PBI target mapping.
-# Keys are case-insensitive. Values can be:
-#   - A datasource type: snowflake | db2 | semantic_model
-#   - A semantic model name (implies semantic_model type)
-LocationSales = MO_Sales
-InstantPackInventory = MO_Inventory
-Transactional = snowflake
-Claims = db2
+# Optional: explicit BO universe → PBI target mapping (uncomment and configure per jurisdiction)
+#[bo_universe_map]
+#LocationSales = MO_Sales
+#InstantPackInventory = MO_Inventory
+#Transactional = snowflake
+#Claims = db2
 ```
 
 ### Datasource inference priority

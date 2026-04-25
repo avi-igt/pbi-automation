@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1060" height="410" viewBox="0 0 1060 410">
+<svg xmlns="http://www.w3.org/2000/svg" width="1060" height="610" viewBox="0 0 1060 610">
   <defs>
     <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#111111"/>
@@ -26,11 +26,11 @@
   </defs>
 
   <!-- Background -->
-  <rect width="1060" height="410" fill="url(#bg2)" rx="10"/>
+  <rect width="1060" height="610" fill="url(#bg2)" rx="10"/>
 
   <!-- Brand strips -->
   <rect x="0" y="0"   width="1060" height="3" fill="url(#orangeFlow)" rx="1"/>
-  <rect x="0" y="407" width="1060" height="3" fill="url(#orangeFlow)" rx="1"/>
+  <rect x="0" y="607" width="1060" height="3" fill="url(#orangeFlow)" rx="1"/>
 
   <!-- ═══════════════════════════════════════════════════════════════════
        LANE 1 — report_generator  ·  FRD → Paginated + Visual Reports
@@ -146,7 +146,7 @@
        ═══════════════════════════════════════════════════════════════════ -->
 
   <!-- Lane 2 accent bar + label -->
-  <rect x="0" y="205" width="4" height="202" fill="#888888" opacity="0.5" rx="1"/>
+  <rect x="0" y="205" width="4" height="200" fill="#888888" opacity="0.5" rx="1"/>
   <text x="14" y="220" font-family="'Segoe UI', sans-serif" font-size="9" fill="#888" letter-spacing="2">MODEL GENERATOR  ·  semantic.properties → .SemanticModel + .Report</text>
 
   <!-- Step labels -->
@@ -229,5 +229,108 @@
   <rect x="836" y="258" width="62" height="110" rx="6" fill="#1a1a1a" stroke="#333" stroke-width="1" stroke-dasharray="3,2"/>
   <text x="867" y="317" font-family="'Segoe UI', sans-serif" font-size="8" fill="#444" text-anchor="middle"
         transform="rotate(-90 867 317)">Fabric / PBI Desktop</text>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       DIVIDER 2
+       ═══════════════════════════════════════════════════════════════════ -->
+  <line x1="4" y1="405" x2="1056" y2="405" stroke="#252525" stroke-width="1.5"/>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       LANE 3 — bo_converter  ·  SAP BO WebI → .md specs + .rdl reports
+       ═══════════════════════════════════════════════════════════════════ -->
+
+  <!-- Lane 3 accent bar + label -->
+  <rect x="0" y="405" width="4" height="202" fill="#FF6600" opacity="0.4" rx="1"/>
+  <text x="14" y="420" font-family="'Segoe UI', sans-serif" font-size="9" fill="#FF8C00" letter-spacing="2">BO CONVERTER  ·  SAP BusinessObjects → .md / .rdl</text>
+
+  <!-- Step labels -->
+  <text x="75"  y="432" font-family="'Segoe UI', sans-serif" font-size="9" fill="#444" text-anchor="middle" letter-spacing="1">SOURCE</text>
+  <text x="238" y="432" font-family="'Segoe UI', sans-serif" font-size="9" fill="#444" text-anchor="middle" letter-spacing="1">PHASE 1 — EXTRACT</text>
+  <text x="416" y="432" font-family="'Segoe UI', sans-serif" font-size="9" fill="#666" text-anchor="middle" letter-spacing="1">CHECKPOINT</text>
+  <text x="613" y="432" font-family="'Segoe UI', sans-serif" font-size="9" fill="#444" text-anchor="middle" letter-spacing="1">PHASE 2 – 3 — GENERATE</text>
+  <text x="758" y="432" font-family="'Segoe UI', sans-serif" font-size="9" fill="#444" text-anchor="middle" letter-spacing="1">OUTPUT</text>
+  <text x="867" y="432" font-family="'Segoe UI', sans-serif" font-size="9" fill="#444" text-anchor="middle" letter-spacing="1">PUBLISH</text>
+
+  <!-- Node 1: BO REST API -->
+  <rect x="18" y="470" width="114" height="62" rx="8" fill="#1a1a1a" stroke="#FF8C00" stroke-width="1.8"/>
+  <text x="75" y="495" font-family="monospace" font-size="11" fill="#FF8C00" text-anchor="middle">BO REST</text>
+  <text x="75" y="511" font-family="monospace" font-size="10" fill="#444" text-anchor="middle">API</text>
+
+  <!-- Arrow 1→2 -->
+  <line x1="134" y1="501" x2="164" y2="501" stroke="#FF8C00" stroke-width="2" marker-end="url(#arrowOrange2)"/>
+
+  <!-- Node 2: bo_extractor.py -->
+  <rect x="166" y="470" width="142" height="62" rx="8" fill="#1a1a1a" stroke="#FF8C00" stroke-width="1.8"/>
+  <text x="237" y="497" font-family="monospace" font-size="11" fill="#FF8C00" text-anchor="middle">bo_extractor</text>
+  <text x="237" y="513" font-family="monospace" font-size="9"  fill="#444"   text-anchor="middle">.py</text>
+  <rect x="179" y="520" width="116" height="6" rx="3" fill="#2a2a2a"/>
+  <rect x="179" y="520" width="80"  height="6" rx="3" fill="#FF8C00" opacity="0.35"/>
+
+  <!-- Arrow 2→3 -->
+  <line x1="310" y1="501" x2="340" y2="501" stroke="#FF8C00" stroke-width="2" marker-end="url(#arrowOrange2)"/>
+
+  <!-- Node 3: bo_extracted.json + .sql (checkpoint) -->
+  <rect x="342" y="466" width="146" height="70" rx="8" fill="#1a1a1a" stroke="#CCCCCC" stroke-width="2"/>
+  <text x="415" y="490" font-family="monospace" font-size="10" fill="#CCCCCC" text-anchor="middle">bo_extracted</text>
+  <text x="415" y="506" font-family="monospace" font-size="10" fill="#888"    text-anchor="middle">.json + .sql</text>
+  <text x="415" y="552" font-family="'Segoe UI', sans-serif" font-size="9" fill="#555" text-anchor="middle">✎ review &amp; edit here</text>
+  <line x1="415" y1="538" x2="415" y2="548" stroke="#444" stroke-width="1" stroke-dasharray="2,2"/>
+
+  <!-- Fork from JSON right edge → two generator branches -->
+  <line x1="490" y1="501" x2="512" y2="501" stroke="#888" stroke-width="1.5"/>
+  <line x1="512" y1="456" x2="512" y2="567" stroke="#555" stroke-width="1.5"/>
+  <line x1="512" y1="456" x2="534" y2="456" stroke="#FF8C00" stroke-width="2" marker-end="url(#arrowOrange2)"/>
+  <line x1="512" y1="501" x2="534" y2="501" stroke="#FF6600" stroke-width="2" marker-end="url(#arrowOrange)"/>
+  <line x1="512" y1="567" x2="534" y2="567" stroke="#666"    stroke-width="1.5" marker-end="url(#arrowGray)"/>
+
+  <!-- Node 4a: bo_spec_generator.py (Phase 2) -->
+  <rect x="536" y="436" width="148" height="40" rx="8" fill="#1a1a1a" stroke="#FF8C00" stroke-width="1.8"/>
+  <text x="610" y="454" font-family="monospace" font-size="9" fill="#FF8C00" text-anchor="middle">bo_spec_generator.py</text>
+  <text x="610" y="469" font-family="monospace" font-size="8.5" fill="#444" text-anchor="middle">Phase 2 — specs</text>
+
+  <!-- Node 4b: spec_to_rdl.py (Phase 3) -->
+  <rect x="536" y="481" width="148" height="40" rx="8" fill="#1a1a1a" stroke="#FF6600" stroke-width="1.8"/>
+  <text x="610" y="499" font-family="monospace" font-size="10" fill="#FF6600" text-anchor="middle">spec_to_rdl.py</text>
+  <text x="610" y="514" font-family="monospace" font-size="8.5" fill="#444" text-anchor="middle">Phase 3 — RDL</text>
+
+  <!-- pbi.properties config badge -->
+  <rect x="548" y="528" width="124" height="22" rx="5" fill="#1a1a1a" stroke="#444" stroke-width="1.2" stroke-dasharray="3,2"/>
+  <text x="610" y="543" font-family="monospace" font-size="9" fill="#555" text-anchor="middle">pbi.properties</text>
+  <line x1="590" y1="528" x2="590" y2="521" stroke="#444" stroke-width="1" stroke-dasharray="2,2"/>
+  <line x1="630" y1="528" x2="630" y2="476" stroke="#444" stroke-width="1" stroke-dasharray="2,2"/>
+
+  <!-- Node 4c: .sql pass-through (already extracted) -->
+  <rect x="536" y="547" width="148" height="40" rx="8" fill="#1a1a1a" stroke="#666" stroke-width="1.5"/>
+  <text x="610" y="565" font-family="monospace" font-size="10" fill="#888" text-anchor="middle">extracted SQL</text>
+  <text x="610" y="580" font-family="monospace" font-size="8.5" fill="#444" text-anchor="middle">from Phase 1</text>
+
+  <!-- Arrows generators → outputs -->
+  <line x1="686" y1="456" x2="718" y2="456" stroke="#FF8C00" stroke-width="2" marker-end="url(#arrowOrange2)"/>
+  <line x1="686" y1="501" x2="718" y2="501" stroke="#FF6600" stroke-width="2" marker-end="url(#arrowOrange)"/>
+  <line x1="686" y1="567" x2="718" y2="567" stroke="#666"    stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrowGray)"/>
+
+  <!-- Node 5a: .md specs -->
+  <rect x="720" y="436" width="76" height="40" rx="8" fill="#1a1a1a" stroke="#FF8C00" stroke-width="1.5"/>
+  <text x="758" y="454" font-family="monospace" font-size="14" fill="#FF8C00" text-anchor="middle" font-weight="bold">.md</text>
+  <text x="758" y="469" font-family="'Segoe UI', sans-serif" font-size="8" fill="#444" text-anchor="middle">review specs</text>
+
+  <!-- Node 5b: .rdl -->
+  <rect x="720" y="481" width="76" height="40" rx="8" fill="#1a1a1a" stroke="#FF6600" stroke-width="1.5"/>
+  <text x="758" y="499" font-family="monospace" font-size="14" fill="#FF6600" text-anchor="middle" font-weight="bold">.rdl</text>
+  <text x="758" y="514" font-family="'Segoe UI', sans-serif" font-size="8" fill="#444" text-anchor="middle">Report Builder</text>
+
+  <!-- Node 5c: .sql (dashed) -->
+  <rect x="720" y="547" width="76" height="40" rx="8" fill="#1a1a1a" stroke="#666" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <text x="758" y="565" font-family="monospace" font-size="14" fill="#666" text-anchor="middle" font-weight="bold">.sql</text>
+  <text x="758" y="580" font-family="'Segoe UI', sans-serif" font-size="8" fill="#444" text-anchor="middle">queries</text>
+
+  <!-- Arrows .md + .rdl → Fabric -->
+  <line x1="798" y1="456" x2="834" y2="474" stroke="#FF8C00" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <line x1="798" y1="501" x2="834" y2="491" stroke="#FF6600" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+  <!-- Fabric block (lane 3) -->
+  <rect x="836" y="456" width="62" height="68" rx="6" fill="#1a1a1a" stroke="#333" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="867" y="494" font-family="'Segoe UI', sans-serif" font-size="8" fill="#444" text-anchor="middle"
+        transform="rotate(-90 867 494)">Microsoft Fabric</text>
 
 </svg>
