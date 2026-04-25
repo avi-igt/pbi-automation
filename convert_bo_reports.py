@@ -86,6 +86,7 @@ def main():
             json_path,
             specs_dir,
             report_filter=args.report,
+            universe_map=config.universe_map,
         )
         print(f"  Phase 2 complete -> {len(paths)} specs in {specs_dir}  ({_elapsed(start)})")
         print()

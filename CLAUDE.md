@@ -240,7 +240,30 @@ username = administrator
 # Password via BO_PASSWORD env var — never stored here
 # Comma-separated folder paths. CLI --folder overrides.
 root_folder = Public Folder/Connecticut/Reports
+# HTTP timeout in seconds for BO API calls (default: 30)
+timeout = 30
+
+[bo_universe_map]
+# Explicit BO universe name → PBI target mapping.
+# Keys are case-insensitive. Values can be:
+#   - A datasource type: snowflake | db2 | semantic_model
+#   - A semantic model name (implies semantic_model type)
+LocationSales = MO_Sales
+InstantPackInventory = MO_Inventory
+Transactional = snowflake
+Claims = db2
 ```
+
+### Datasource inference priority
+
+1. `[bo_universe_map]` — explicit universe name → datasource type or semantic model (deterministic)
+2. BO `dataSourceType` field — structural mapping from Phase 1 extraction (`unx`/`unv` → snowflake)
+3. `[datasource_keywords]` — name/summary/notes keyword matching (heuristic)
+4. `default_datasource` — fallback from `[datasource_keywords]`
+
+When `[bo_universe_map]` maps to a model name (e.g. `MO_Sales`), the datasource type is
+automatically set to `semantic_model` and the model name is used directly — bypassing
+both `[model_keywords]` and `[datasource_keywords]` inference.
 
 ### Pipeline
 

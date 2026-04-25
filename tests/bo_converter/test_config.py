@@ -63,3 +63,22 @@ def test_request_delay_default(tmp_path):
     props.write_text("[bo]\nhost = http://localhost:8080/biprws\n")
     cfg = BoConfig(props)
     assert cfg.request_delay == 0.2
+
+
+def test_universe_map_parsed(tmp_path):
+    props = tmp_path / "pbi.properties"
+    props.write_text(
+        "[bo]\nhost = http://localhost:8080/biprws\n\n"
+        "[bo_universe_map]\n"
+        "LocationSales = MO_Sales\n"
+        "ClaimsPayment = db2\n"
+    )
+    cfg = BoConfig(props)
+    assert cfg.universe_map == {"locationsales": "MO_Sales", "claimspayment": "db2"}
+
+
+def test_universe_map_empty_when_missing(tmp_path):
+    props = tmp_path / "pbi.properties"
+    props.write_text("[bo]\nhost = http://localhost:8080/biprws\n")
+    cfg = BoConfig(props)
+    assert cfg.universe_map == {}

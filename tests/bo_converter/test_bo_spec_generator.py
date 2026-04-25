@@ -102,6 +102,67 @@ def test_filename_is_slugified(tmp_path):
     assert paths[0].name == "daily-sales-report.md"
 
 
+def test_spec_contains_legacy_universes(tmp_path):
+    json_path = tmp_path / "bo_extracted.json"
+    json_path.write_text(json.dumps(SAMPLE_EXTRACTED))
+    output_dir = tmp_path / "specs"
+
+    paths = generate_specs_from_json(json_path, output_dir)
+    content = paths[0].read_text()
+
+    assert "Legacy Universe(s):" in content
+    assert "`Sales Universe`" in content
+
+
+def test_universe_map_overrides_datasource_type(tmp_path):
+    """When universe_map matches a dataprovider, it wins over datasource_type."""
+    import copy
+    data = copy.deepcopy(SAMPLE_EXTRACTED)
+    data["reports"][0]["datasource_type"] = "semantic_model"
+    json_path = tmp_path / "bo_extracted.json"
+    json_path.write_text(json.dumps(data))
+    output_dir = tmp_path / "specs"
+
+    universe_map = {"sales universe": "db2"}
+    paths = generate_specs_from_json(json_path, output_dir, universe_map=universe_map)
+    content = paths[0].read_text()
+
+    assert "DB2" in content
+
+
+def test_universe_map_model_name_sets_semantic_model(tmp_path):
+    """When universe_map value is a model name (not a ds_type), implies semantic_model."""
+    import copy
+    data = copy.deepcopy(SAMPLE_EXTRACTED)
+    data["reports"][0]["datasource_type"] = ""
+    json_path = tmp_path / "bo_extracted.json"
+    json_path.write_text(json.dumps(data))
+    output_dir = tmp_path / "specs"
+
+    universe_map = {"sales universe": "MO_Sales"}
+    paths = generate_specs_from_json(json_path, output_dir, universe_map=universe_map)
+    content = paths[0].read_text()
+
+    assert "MO_Sales" in content
+    assert "PBIDATASET" in content
+
+
+def test_universe_map_miss_falls_through(tmp_path):
+    """When universe_map has no match, falls through to datasource_type."""
+    import copy
+    data = copy.deepcopy(SAMPLE_EXTRACTED)
+    data["reports"][0]["datasource_type"] = "snowflake"
+    json_path = tmp_path / "bo_extracted.json"
+    json_path.write_text(json.dumps(data))
+    output_dir = tmp_path / "specs"
+
+    universe_map = {"other universe": "db2"}
+    paths = generate_specs_from_json(json_path, output_dir, universe_map=universe_map)
+    content = paths[0].read_text()
+
+    assert "Snowflake" in content
+
+
 def test_skips_reports_with_filter(tmp_path):
     json_path = tmp_path / "bo_extracted.json"
     json_path.write_text(json.dumps(SAMPLE_EXTRACTED))

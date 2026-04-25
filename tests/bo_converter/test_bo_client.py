@@ -142,6 +142,7 @@ class TestExtractReport:
 
             assert report["folder"] == "Sales Reports"
             assert report["folder_path"] == "Public Folder/Sales Reports"
-            assert report["legacy_reports"] == "Public Folder/Sales Reports\\Test"
+            assert report["legacy_reports"] == "Public Folder/Sales Reports/Test"
             assert report["name"] == "Test"
             assert report["report_format"] == "Paginated"
+            assert report["datasource_type"] == "snowflake"

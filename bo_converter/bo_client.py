@@ -16,6 +16,14 @@ log = logging.getLogger(__name__)
 
 _PAGE_SIZE = 50
 
+_BO_DS_TYPE_MAP = {
+    "unx": "snowflake",
+    "unv": "snowflake",
+    "sql": "snowflake",
+    "bics": "",
+    "hana": "",
+}
+
 
 def _as_list(val):
     """Normalise BO API responses that return a single dict instead of a list."""
@@ -51,7 +59,7 @@ class BoClient:
             "password": self._cfg.password,
             "auth": self._cfg.auth_type,
         }
-        resp = self._session.post(url, json=payload)
+        resp = self._session.post(url, json=payload, timeout=self._cfg.timeout)
         resp.raise_for_status()
         token = resp.json().get("logonToken")
         if not token:
@@ -62,7 +70,7 @@ class BoClient:
     def logoff(self):
         try:
             url = f"{self._cfg.host}/logon/long"
-            self._session.delete(url)
+            self._session.delete(url, timeout=self._cfg.timeout)
             log.info("Logged off from %s", self._cfg.host)
         except Exception as e:
             log.warning("Logoff failed: %s", e)
@@ -72,7 +80,7 @@ class BoClient:
         offset = 0
         while True:
             url = f"{self._cfg.host}/raylight/v1/documents?offset={offset}&limit={_PAGE_SIZE}"
-            resp = self._session.get(url)
+            resp = self._session.get(url, timeout=self._cfg.timeout)
             resp.raise_for_status()
             data = resp.json()
             page = _as_list(data.get("documents", {}).get("document", []))
@@ -99,18 +107,20 @@ class BoClient:
         dataproviders = self._extract_dataproviders(doc_id)
         layout = self._extract_layout(doc_id, dataproviders)
 
+        ds_type = self._infer_datasource_from_providers(dataproviders)
+
         report = {
             "folder": folder_name,
             "folder_path": folder_path,
             "name": name,
             "report_format": "Paginated",
-            "legacy_reports": f"{folder_path}\\{name}",
+            "legacy_reports": f"{folder_path}/{name}",
             "legacy_users": "",
             "summary": description,
             "sort": "N/A",
             "target_folder": folder_name,
             "notes": "",
-            "datasource_type": "",
+            "datasource_type": ds_type,
             "parameters": parameters,
             "filters": [],
             "layout": layout,
@@ -172,7 +182,7 @@ class BoClient:
 
     def _fetch_folder(self, folder_id: str) -> dict | None:
         url = f"{self._cfg.host}/infostore/{folder_id}"
-        resp = self._session.get(url)
+        resp = self._session.get(url, timeout=self._cfg.timeout)
         if resp.status_code != 200:
             log.warning("Failed to resolve folder %s: %s", folder_id, resp.status_code)
             return None
@@ -180,7 +190,7 @@ class BoClient:
 
     def _extract_parameters(self, doc_id) -> list[dict]:
         url = f"{self._cfg.host}/raylight/v1/documents/{doc_id}/parameters"
-        resp = self._session.get(url)
+        resp = self._session.get(url, timeout=self._cfg.timeout)
         if resp.status_code != 200:
             log.warning("Failed to get parameters for doc %s: %s", doc_id, resp.status_code)
             return []
@@ -203,7 +213,7 @@ class BoClient:
 
     def _extract_dataproviders(self, doc_id) -> list[dict]:
         url = f"{self._cfg.host}/raylight/v1/documents/{doc_id}/dataproviders"
-        resp = self._session.get(url)
+        resp = self._session.get(url, timeout=self._cfg.timeout)
         if resp.status_code != 200:
             log.warning("Failed to get dataproviders for doc %s: %s", doc_id, resp.status_code)
             return []
@@ -227,7 +237,7 @@ class BoClient:
 
     def _get_dataprovider_detail(self, doc_id, dp_id: str) -> dict:
         url = f"{self._cfg.host}/raylight/v1/documents/{doc_id}/dataproviders/{dp_id}"
-        resp = self._session.get(url)
+        resp = self._session.get(url, timeout=self._cfg.timeout)
         if resp.status_code != 200:
             return {}
         data = resp.json()
@@ -246,7 +256,7 @@ class BoClient:
 
     def _get_queryplan(self, doc_id, dp_id: str) -> dict:
         url = f"{self._cfg.host}/raylight/v1/documents/{doc_id}/dataproviders/{dp_id}/queryplan"
-        resp = self._session.get(url)
+        resp = self._session.get(url, timeout=self._cfg.timeout)
         if resp.status_code != 200:
             return {"sql": "", "custom": False}
         data = resp.json()
@@ -260,6 +270,15 @@ class BoClient:
         else:
             sql = ""
         return {"sql": sql, "custom": custom}
+
+    @staticmethod
+    def _infer_datasource_from_providers(dataproviders: list[dict]) -> str:
+        for dp in dataproviders:
+            bo_type = dp.get("dataSourceType", "").lower()
+            mapped = _BO_DS_TYPE_MAP.get(bo_type)
+            if mapped:
+                return mapped
+        return ""
 
     def _extract_layout(self, doc_id, dataproviders: list[dict]) -> dict:
         layout = {}
