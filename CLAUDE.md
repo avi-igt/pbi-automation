@@ -331,6 +331,10 @@ BO REST API
 Phase 2 delegates to `report_generator.spec_generator` for markdown rendering.
 Phase 3 delegates to `report_generator.spec_to_rdl` (existing Path B).
 
+**Requires SAP BO BI Platform 4.1 SP2+** with the `biprws` REST webapp deployed
+(`/raylight/v1/` and `/infostore/` endpoints). Does not work with BO XI 3.x, disabled
+`biprws` deployments, or SAP Analytics Cloud.
+
 ### Multi-folder support
 
 Both `root_folder` config and `--folder` CLI accept comma-separated paths:

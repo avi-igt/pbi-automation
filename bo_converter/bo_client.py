@@ -2,6 +2,9 @@
 
 Handles authentication, document enumeration, and per-report metadata
 extraction via the BO RESTful Web Service (biprws).
+
+Requires SAP BO BI Platform 4.1 SP2+ with biprws webapp deployed.
+Not compatible with BO XI 3.x (no REST API) or SAP Analytics Cloud.
 """
 
 import logging

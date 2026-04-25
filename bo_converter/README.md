@@ -63,6 +63,7 @@ Each phase can be run independently, allowing human review at any checkpoint.
 ### Prerequisites
 
 - Python 3.9+
+- **SAP BO BI Platform 4.1 SP2+** with the RESTful Web Service (`biprws`) webapp deployed
 - Network access to the BO server
 - BO credentials (username in config, password via environment variable)
 
@@ -95,11 +96,11 @@ All settings live in `pbi.properties` under the `[bo]` section:
 
 ```ini
 [bo]
-host = http://10.17.56.65:8080/biprws
+host = http://njsqgriarpiap01:8080/biprws
 username = administrator
 # Password via BO_PASSWORD env var — never stored in config
 # Folder paths to extract (comma-separated for multiple folders)
-root_folder = Public Folder/Connecticut/Reports
+root_folder = Public Folder/New Jersey/Reports
 # HTTP timeout in seconds for BO API calls (default: 30)
 timeout = 30
 ```
@@ -204,11 +205,13 @@ From the Connecticut BO server (`ctsq1riarpiap01`):
 
 ## Known Limitations
 
-1. **Folder filtering enumerates all documents first.** Phase 1 fetches the full document list from the BO server and resolves folder paths client-side before applying folder filters. With 241+ documents this adds overhead proportional to total document count, not filtered count. The BO `/infostore` endpoint supports querying children by parent folder ID, which could eliminate the enumerate-then-filter approach, but would require a larger API rework. Current extraction time (~5 minutes for 241 docs) is acceptable.
+1. **Requires SAP BO BI Platform 4.1 SP2+ with `biprws` REST API.** The tool uses the `/raylight/v1/` and `/infostore/` REST endpoints exclusively. These are only available on BI Platform 4.x deployments where the `biprws` webapp is enabled. It will **not** work with BO XI 3.x or earlier (no REST API — only Java/COM SDKs), BO 4.x installations where `biprws` is not deployed, or SAP Analytics Cloud (SAC), which has a completely different API.
 
-2. **Layout is derived from data provider columns, not the report layout.** The BO REST API exposes data provider dictionaries (columns, data types) but the actual report-level layout (tab grouping, crosstab vs. table, column display order, calculated report-level columns) would require parsing the `/reports` endpoint. The generated specs list correct column headers but may not reflect the visual organization of the original BO report. Developers should verify layout during the spec review step (Phase 2).
+2. **Folder filtering enumerates all documents first.** Phase 1 fetches the full document list from the BO server and resolves folder paths client-side before applying folder filters. With 241+ documents this adds overhead proportional to total document count, not filtered count. The BO `/infostore` endpoint supports querying children by parent folder ID, which could eliminate the enumerate-then-filter approach, but would require a larger API rework. Current extraction time (~5 minutes for 241 docs) is acceptable.
 
-3. **No end-to-end test for Phase 3 (RDL generation).** The integration test covers Phase 1 -> Phase 2 (extract -> specs). Phase 3 is covered implicitly through `report_generator.spec_to_rdl` tests, but there is no bo_converter-specific test that verifies the full three-phase pipeline produces valid `.rdl` output.
+3. **Layout is derived from data provider columns, not the report layout.** The BO REST API exposes data provider dictionaries (columns, data types) but the actual report-level layout (tab grouping, crosstab vs. table, column display order, calculated report-level columns) would require parsing the `/reports` endpoint. The generated specs list correct column headers but may not reflect the visual organization of the original BO report. Developers should verify layout during the spec review step (Phase 2).
+
+4. **No end-to-end test for Phase 3 (RDL generation).** The integration test covers Phase 1 -> Phase 2 (extract -> specs). Phase 3 is covered implicitly through `report_generator.spec_to_rdl` tests, but there is no bo_converter-specific test that verifies the full three-phase pipeline produces valid `.rdl` output.
 
 ---
 
