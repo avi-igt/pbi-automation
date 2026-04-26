@@ -36,8 +36,8 @@ pbi-automation/
 │   ├── spec_to_rdl.py          ← spec → .rdl (Path B)
 │   ├── spec_to_pbip.py         ← spec → .pbip (Path B)
 │   ├── sql/                    ← hand-authored SQL for ODBC reports
+│   ├── logos/                  ← site logo PNGs (mo_logo.png, nj_logo.png)
 │   └── templates/
-│       ├── MO_Report_Template.rdl  ← RDL base template (logo source)
 │       └── specs/              ← spec reference templates
 │
 ├── model_generator/            ← semantic.properties → SemanticModel + Report
@@ -159,7 +159,7 @@ canvas_height = 720
 # ... (theme, brand colors)
 
 [paths]
-rdl_template = templates/MO_Report_Template.rdl
+logo_image   = logos/nj_logo.png
 frd_docx     = MO - Performance Wizard Ad Hoc Reporting FRD v1.0.docx
 sql_dir      = sql
 ```
@@ -181,7 +181,10 @@ The `[site]` section controls FRD parser behavior per jurisdiction:
 | `skip_sections` | `Introduction, Performance Wizard Reporting` | H1 headings to skip (comma-separated) |
 | `logo_label` | `Missouri Lottery logo (top-left of header)` | Logo line in generated spec .md files |
 
-For a new site, set `site_prefix` and `logo_label`. Only override other keys if the FRD template structure differs.
+For a new site, set `site_prefix`, `logo_label`, and `logo_image` (under `[paths]`). Only override other keys if the FRD template structure differs.
+
+Logo images live in `report_generator/logos/` as PNG files. The filename stem becomes the
+RDL embedded image name (e.g. `logos/nj_logo.png` → `<EmbeddedImage Name="nj_logo">`).
 
 ### Data Source Detection Logic
 

@@ -173,7 +173,22 @@ venv/bin/python generate_reports.py "TAC Data Examiner Supplemental Document.doc
 
 ---
 
-### Scenario K — Clean generated output
+### Scenario K — Log output to file
+
+Append `--log` to write a timestamped copy of all console output to a log file.
+
+```bash
+venv/bin/python generate_reports.py --log
+venv/bin/python generate_reports.py --only rdl --report "Tax" --log
+```
+
+Output: `output/pbi-automation-YYYY-MM-DD-HH-MM.log`
+
+The log captures both stdout and stderr. Console output continues as normal.
+
+---
+
+### Scenario L — Clean generated output
 
 Wipe all output directories to start fresh.
 
@@ -205,7 +220,7 @@ venv/bin/python generate_models.py
 
 ---
 
-### Scenario L — List all configured models
+### Scenario M — List all configured models
 
 ```bash
 venv/bin/python generate_models.py --list
@@ -225,7 +240,7 @@ Currently configured models:
 
 ---
 
-### Scenario M — Generate all models
+### Scenario N — Generate all models
 
 ```bash
 export SNOWFLAKE_USER=your_username && export SNOWFLAKE_PASSWORD=your_password
@@ -237,7 +252,7 @@ for every model in `semantic.properties`.
 
 ---
 
-### Scenario N — Generate a single model
+### Scenario O — Generate a single model
 
 ```bash
 venv/bin/python generate_models.py --model draw_sales
@@ -252,7 +267,7 @@ venv/bin/python generate_models.py --model order_detail
 
 ---
 
-### Scenario O — Target a specific environment
+### Scenario P — Target a specific environment
 
 Default environment is `d1v1`. Override for dev/cert/prod:
 
@@ -267,7 +282,7 @@ Environment overrides apply Snowflake account/warehouse substitutions from
 
 ---
 
-### Scenario P — Model with non-standard join key (order_detail)
+### Scenario Q — Model with non-standard join key (order_detail)
 
 `order_detail` joins Products via `GAME_PRODUCT_KEY` instead of the default `PRODUCT_KEY`.
 This is already configured in `semantic.properties`:
@@ -286,7 +301,7 @@ M query merge expression.
 
 ---
 
-### Scenario Q — Adding a new model (workflow demo)
+### Scenario R — Adding a new model (workflow demo)
 
 1. Add a section to `semantic.properties`:
 ```ini
@@ -318,7 +333,7 @@ cp -r "output/models/My New Model LDI.Report" \
 
 ---
 
-### Scenario R — Adding a new measure suffix type (no code changes)
+### Scenario S — Adding a new measure suffix type (no code changes)
 
 Add to `[measure_suffixes]` in `semantic.properties`:
 
@@ -331,6 +346,17 @@ _UNITS    = int64,   #,##0        ← new: columns ending in _UNITS auto-become 
 ```
 
 Re-run any model — the new suffix is picked up automatically.
+
+---
+
+### Scenario T — Log output to file (model_generator)
+
+```bash
+venv/bin/python generate_models.py --log
+venv/bin/python generate_models.py --model draw_sales --log
+```
+
+Output: `output/pbi-automation-YYYY-MM-DD-HH-MM.log`
 
 ---
 
@@ -349,7 +375,7 @@ The username and host are configured in `pbi.properties` under `[bo]`.
 
 ---
 
-### Scenario S — Full pipeline (extract + specs + rdl)
+### Scenario U — Full pipeline (extract + specs + rdl)
 
 ```bash
 python convert_bo_reports.py
@@ -363,7 +389,7 @@ Outputs:
 
 ---
 
-### Scenario T — Extract only (BO API -> JSON + SQL)
+### Scenario V — Extract only (BO API -> JSON + SQL)
 
 ```bash
 python convert_bo_reports.py --only extract
@@ -375,7 +401,7 @@ Outputs:
 
 ---
 
-### Scenario U — Generate specs only (JSON -> .md)
+### Scenario W — Generate specs only (JSON -> .md)
 
 Requires JSON from a prior extract.
 
@@ -387,7 +413,7 @@ Output: `output/bo-specs/*.md`
 
 ---
 
-### Scenario V — Generate RDL only (.md -> .rdl)
+### Scenario X — Generate RDL only (.md -> .rdl)
 
 Requires spec files from a prior specs run.
 
@@ -399,7 +425,7 @@ Output: `output/bo-rdl/**/*.rdl`
 
 ---
 
-### Scenario W — Filter by folder
+### Scenario Y — Filter by folder
 
 Filter extraction to reports under specific BO folders (substring, case-insensitive).
 
@@ -424,7 +450,7 @@ root_folder = Public Folder/Connecticut/Reports
 
 ---
 
-### Scenario X — Filter by report name
+### Scenario Z — Filter by report name
 
 ```bash
 python convert_bo_reports.py --report "Daily Sales"
@@ -434,7 +460,7 @@ Applies to all phases — extract filters documents, specs/rdl filter by filenam
 
 ---
 
-### Scenario Y — Custom output directory
+### Scenario AA — Custom output directory
 
 ```bash
 python convert_bo_reports.py -o /tmp/bo-output
@@ -442,12 +468,24 @@ python convert_bo_reports.py -o /tmp/bo-output
 
 ---
 
-### Scenario Z — Verbose logging
+### Scenario AB — Verbose logging
 
 ```bash
 python convert_bo_reports.py -v
 python convert_bo_reports.py --verbose --only extract
 ```
+
+---
+
+### Scenario AC — Log output to file (bo_converter)
+
+```bash
+python convert_bo_reports.py --log
+python convert_bo_reports.py --only extract --log
+python convert_bo_reports.py -v --log          # verbose + log file
+```
+
+Output: `output/pbi-automation-YYYY-MM-DD-HH-MM.log`
 
 ---
 
@@ -462,14 +500,17 @@ python convert_bo_reports.py --verbose --only extract
 | Specs only | `venv/bin/python generate_reports.py --only spec` |
 | One report | `venv/bin/python generate_reports.py --report "Name"` |
 | Different FRD | `venv/bin/python generate_reports.py path/to/FRD.docx` |
+| Log to file | `venv/bin/python generate_reports.py --log` |
 | Clean outputs | `venv/bin/python clean.py` |
 | List models | `venv/bin/python generate_models.py --list` |
 | All models | `venv/bin/python generate_models.py` |
 | One model | `venv/bin/python generate_models.py --model <key>` |
 | Target env | `venv/bin/python generate_models.py --model <key> --env c1v1` |
+| Model log to file | `venv/bin/python generate_models.py --log` |
 | BO full pipeline | `python convert_bo_reports.py` |
 | BO extract only | `python convert_bo_reports.py --only extract` |
 | BO specs only | `python convert_bo_reports.py --only specs` |
 | BO RDL only | `python convert_bo_reports.py --only rdl` |
 | BO filter folder | `python convert_bo_reports.py --folder "CAP, Finance"` |
 | BO filter report | `python convert_bo_reports.py --report "Daily Sales"` |
+| BO log to file | `python convert_bo_reports.py --log` |
