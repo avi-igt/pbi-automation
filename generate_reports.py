@@ -153,7 +153,13 @@ def main():
         "--report",
         help="Filter: only generate files for reports whose name contains this string",
     )
+    ap.add_argument("--log", action="store_true", help="Write output to a timestamped log file in output/")
     args = ap.parse_args()
+
+    if args.log:
+        from _log import setup_file_logging
+        log_path = setup_file_logging(output_dir=args.output)
+        print(f"  Logging to {log_path}")
 
     frd_path = Path(args.frd)
     output_base = Path(args.output)

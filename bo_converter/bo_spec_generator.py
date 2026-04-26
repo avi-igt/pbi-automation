@@ -65,17 +65,24 @@ def _extract_universes(report: dict) -> list[str]:
     return result
 
 
-def _extract_sql(report: dict) -> list[dict]:
+def _extract_sql(
+    report: dict,
+    universe_map: dict[str, str] | None = None,
+) -> list[dict]:
     result = []
     for dp in report.get("_dataproviders", []):
         sql = dp.get("sql", "")
         if not sql:
             continue
+        universe = dp.get("dataSourceName", "")
+        ds_type, model = _resolve_universe(universe, universe_map)
         result.append({
             "name": dp.get("name", dp.get("id", "")),
-            "universe": dp.get("dataSourceName", ""),
+            "universe": universe,
             "sql": sql,
             "custom_sql": dp.get("custom_sql", False),
+            "datasource_type": ds_type,
+            "model": model,
         })
     return result
 
@@ -96,6 +103,18 @@ def _resolve_from_universe_map(
                 return value.lower(), ""
             return "semantic_model", value
     return None, None
+
+
+def _resolve_universe(universe: str, universe_map: dict[str, str] | None) -> tuple[str, str]:
+    """Resolve a single universe name to (datasource_type, model_name)."""
+    if universe_map:
+        key = universe.lower()
+        if key in universe_map:
+            value = universe_map[key]
+            if value.lower() in _DS_TYPES:
+                return value.lower(), ""
+            return "semantic_model", value
+    return "", ""
 
 
 def _infer_datasource(report: dict) -> str:
@@ -152,7 +171,7 @@ def generate_specs_from_json(
         else:
             model = ""
         universes = _extract_universes(report)
-        sql_blocks = _extract_sql(report)
+        sql_blocks = _extract_sql(report, universe_map)
 
         md = generate_md(
             report_name=name,

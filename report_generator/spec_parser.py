@@ -277,6 +277,43 @@ def _parse_sql(text: str) -> str | None:
     return None
 
 
+def _parse_sql_blocks(text: str) -> list[dict]:
+    """Parse all SQL blocks from an Original SQL section.
+
+    Expects ``### Name — Universe: `UniverseName` — Model: `ModelName``` sub-headings,
+    each followed by a ```sql code block.  Returns a list of dicts:
+        [{"name": "Retailer Sales", "universe": "Retailer Sales",
+          "model": "MO_Sales", "sql": "SELECT ..."}]
+    """
+    blocks: list[dict] = []
+
+    parts = re.split(r"(?=^###\s+)", text, flags=re.MULTILINE)
+    for part in parts:
+        heading_m = re.match(r"^###\s+(.+)", part)
+        if not heading_m:
+            continue
+        raw = heading_m.group(1).strip()
+
+        uni_m = re.search(r"—\s*Universe:\s*`([^`]+)`", raw)
+        universe = uni_m.group(1).strip() if uni_m else ""
+
+        model_m = re.search(r"—\s*Model:\s*`([^`]+)`", raw)
+        model = model_m.group(1).strip() if model_m else ""
+
+        # Name is everything before the first " — " metadata tag
+        name_end = min(
+            (m.start() for m in [uni_m, model_m] if m),
+            default=len(raw),
+        )
+        name = raw[:name_end].strip().rstrip("—").strip()
+
+        sql = _parse_sql(part)
+        if sql:
+            blocks.append({"name": name, "universe": universe, "model": model, "sql": sql})
+
+    return blocks
+
+
 # ── Layout ─────────────────────────────────────────────────────────────────────
 
 def _parse_layout(text: str) -> dict:
@@ -395,7 +432,8 @@ def parse_spec(md_path: str) -> dict:
         filters    = []
         parameters = _parse_parameters(params_text)
 
-    sql    = _parse_sql(sections.get("Datasets", ""))
+    sql    = _parse_sql(sections.get("Datasets", "")) or _parse_sql(sections.get("Original SQL", ""))
+    sql_blocks = _parse_sql_blocks(sections.get("Original SQL", ""))
     layout = _parse_layout(sections.get("Layout", ""))
     reqs   = _parse_requirements(
         sections.get("Business Rules / Requirements", "")
@@ -439,5 +477,7 @@ def parse_spec(md_path: str) -> dict:
         report["_spec_guid"] = ds_info["guid"]
     if sql:
         report["_spec_sql"] = sql
+    if len(sql_blocks) > 1:
+        report["_spec_sql_blocks"] = sql_blocks
 
     return report

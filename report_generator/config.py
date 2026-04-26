@@ -7,6 +7,7 @@ Usage:
     logo = cfg.logo_b64           # base64 PNG or "" if template not found
 """
 
+import base64
 import configparser
 import re
 import os
@@ -17,7 +18,7 @@ _REPO_ROOT = Path(__file__).parent.parent
 
 _PROPERTIES_FILE = _REPO_ROOT / "pbi.properties"
 _PKG_ROOT = Path(__file__).parent
-_FALLBACK_TEMPLATE = _PKG_ROOT / "templates" / "MO_Report_Template.rdl"
+_FALLBACK_LOGO = _PKG_ROOT / "logos" / "mo_logo.png"
 
 
 class PbiConfig:
@@ -97,8 +98,9 @@ class PbiConfig:
             _sql_dir_path if _sql_dir_path.is_absolute() else _PKG_ROOT / _sql_dir_path
         )
 
-        # Embedded logo base64 (extracted from template RDL on first access)
+        # Embedded logo (loaded from PNG file on first access)
         self._logo_b64: str | None = None
+        self._logo_name: str | None = None
 
         # Site / jurisdiction config (multi-state FRD parsing)
         _prefix = self._get("site", "site_prefix", "MO")
@@ -249,40 +251,38 @@ class PbiConfig:
         return "TODO_SemanticModel"
 
     # ------------------------------------------------------------------
-    # Logo extraction
+    # Logo
     # ------------------------------------------------------------------
 
-    @property
-    def logo_b64(self) -> str:
-        """Base64 PNG data for the MO Lottery logo (molotterylogov).
-        Returns empty string if the template RDL is not present."""
-        if self._logo_b64 is None:
-            self._logo_b64 = self._load_logo()
-        return self._logo_b64
-
-    def _load_logo(self) -> str:
-        template_path = _FALLBACK_TEMPLATE
-        rdl_template_setting = self._get("paths", "rdl_template", "")
-        if rdl_template_setting:
-            candidate = Path(rdl_template_setting)
+    def _ensure_logo_loaded(self) -> None:
+        if self._logo_b64 is not None:
+            return
+        logo_path = _FALLBACK_LOGO
+        logo_setting = self._get("paths", "logo_image", "")
+        if logo_setting:
+            candidate = Path(logo_setting)
             if not candidate.is_absolute():
                 candidate = _PKG_ROOT / candidate
             if candidate.exists():
-                template_path = candidate
+                logo_path = candidate
+        if not logo_path.exists():
+            self._logo_b64 = ""
+            self._logo_name = ""
+            return
+        self._logo_b64 = base64.b64encode(logo_path.read_bytes()).decode("ascii")
+        self._logo_name = logo_path.stem
 
-        if not template_path.exists():
-            return ""
+    @property
+    def logo_b64(self) -> str:
+        """Base64 PNG data for the site logo. Returns empty string if no logo file found."""
+        self._ensure_logo_loaded()
+        return self._logo_b64
 
-        content = template_path.read_text(encoding="utf-8", errors="replace")
-        # Extract <EmbeddedImage Name="molotterylogov"> ... <ImageData>DATA</ImageData>
-        m = re.search(
-            r'<EmbeddedImage\s+Name="molotterylogov">'
-            r'[\s\S]*?<ImageData>([\s\S]*?)</ImageData>',
-            content,
-        )
-        if m:
-            return m.group(1).strip()
-        return ""
+    @property
+    def logo_name(self) -> str:
+        """Embedded image name derived from the logo filename (e.g. 'nj_logo')."""
+        self._ensure_logo_loaded()
+        return self._logo_name
 
 
 # Module-level singleton

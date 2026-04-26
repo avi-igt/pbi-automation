@@ -42,12 +42,18 @@ def main():
     parser.add_argument("--report", help="Filter by report name (substring, case-insensitive)")
     parser.add_argument("-o", "--output", default="output", help="Base output directory")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable debug logging")
+    parser.add_argument("--log", action="store_true", help="Write output to a timestamped log file in output/")
     args = parser.parse_args()
 
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(levelname)-8s %(message)s",
     )
+
+    if args.log:
+        from _log import setup_file_logging
+        log_path = setup_file_logging(output_dir=args.output, verbose=args.verbose)
+        print(f"  Logging to {log_path}")
 
     _banner()
     output_dir = Path(args.output)

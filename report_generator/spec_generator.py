@@ -689,6 +689,8 @@ def generate_md(
                 heading_parts.append(dp_name)
             if universe:
                 heading_parts.append(f"Universe: `{universe}`")
+            if dp.get("model"):
+                heading_parts.append(f"Model: `{dp['model']}`")
             if dp.get("custom_sql"):
                 heading_parts.append("(Custom SQL)")
             if heading_parts:

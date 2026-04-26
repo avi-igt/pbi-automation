@@ -233,8 +233,9 @@ def make_tablix_xml(report_name: str, columns: list, dataset_name: str) -> str:
     col_defs_xml = "\n".join(col_defs)
     members_xml = "\n".join(tablix_members)
     ds_safe = safe_name(dataset_name)
+    tablix_name = f"tbl_{safe_name(report_name)}"
 
-    return f"""      <Tablix Name="MainTable">
+    return f"""      <Tablix Name="{tablix_name}">
         <DataSetName>{ds_safe}</DataSetName>
         <Top>0.1in</Top>
         <Left>0.1in</Left>
@@ -317,7 +318,7 @@ def _build_param_grid(user_params: list) -> str:
   </ReportParametersLayout>"""
 
 
-def _date_range_xml(user_params: list) -> str:
+def _date_range_xml(user_params: list, suffix: str = "") -> str:
     """Return the Date Range textbox XML for the page header.
     Uses StartDate/EndDate if present; otherwise shows a placeholder."""
     has_start = any(p.get("label", "").lower() in ("start date", "startdate", "begin date") for p in user_params)
@@ -348,7 +349,7 @@ def _date_range_xml(user_params: list) -> str:
                     <Style />
                   </TextRun>"""
 
-    return f"""            <Textbox Name="DateRange">
+    return f"""            <Textbox Name="DateRange{suffix}">
               <CanGrow>true</CanGrow>
               <KeepTogether>true</KeepTogether>
               <Paragraphs>
@@ -452,7 +453,92 @@ def generate_rdl(report: dict) -> str:
 
     # ── DataSource & DataSet ────────────────────────────────────────────
     ds_safe = safe_name(name)
-    if datasource_type == "semantic_model":
+    sql_blocks = report.get("_spec_sql_blocks", [])
+
+    if sql_blocks:
+        # ── Multi-block path: one DataSet + DataSource per SQL block ──
+        # Blocks carry per-provider model info from the spec's Original SQL section.
+        datasource_parts = []
+        datasource_names_seen: set[str] = set()
+        workspace = c.workspace_name if c else "TODO_Workspace"
+
+        if datasource_type == "db2":
+            odbc_name = c.db2_source_name if c else "BOADB"
+            odbc_dsn = c.db2_dsn if c else "MOS-Q1-BOADB"
+        else:
+            odbc_name = c.sfodbc_source_name if c else "LPC_E2_SFODBC"
+            odbc_dsn = c.sfodbc_dsn if c else "MOS-PX-SFODBC"
+
+        def _ensure_odbc_datasource():
+            if odbc_name not in datasource_names_seen:
+                datasource_names_seen.add(odbc_name)
+                datasource_parts.append(f"""    <DataSource Name="{odbc_name}">
+      <rd:SecurityType>DataBase</rd:SecurityType>
+      <ConnectionProperties>
+        <DataProvider>ODBC</DataProvider>
+        <ConnectString>Dsn={odbc_dsn}</ConnectString>
+        <Prompt>Specify a user name and password for data source {odbc_name}:</Prompt>
+      </ConnectionProperties>
+      <rd:DataSourceID>{str(uuid.uuid4())}</rd:DataSourceID>
+    </DataSource>""")
+
+        def _ensure_model_datasource(model_name: str) -> str:
+            ds_nm = (
+                c.datasource_name(model_name) if c
+                else f"TODO_{model_name.replace(' ', '_')}"
+            )
+            if ds_nm in datasource_names_seen:
+                return ds_nm
+            datasource_names_seen.add(ds_nm)
+            cs = (
+                c.connect_string(model_name) if c
+                else "Data Source=pbiazure://api.powerbi.com/;Initial Catalog=TODO"
+            )
+            datasource_parts.append(f"""    <DataSource Name="{ds_nm}">
+      <rd:SecurityType>None</rd:SecurityType>
+      <ConnectionProperties>
+        <DataProvider>PBIDATASET</DataProvider>
+        <ConnectString>{xe(cs)}</ConnectString>
+      </ConnectionProperties>
+      <rd:DataSourceID>{str(uuid.uuid4())}</rd:DataSourceID>
+      <rd:PowerBIWorkspaceName>{xe(workspace)}</rd:PowerBIWorkspaceName>
+      <rd:PowerBIDatasetName>{xe(model_name)}</rd:PowerBIDatasetName>
+    </DataSource>""")
+            return ds_nm
+
+        ds_parts = []
+        for blk in sql_blocks:
+            blk_name = safe_name(blk["name"])
+            blk_model = blk.get("model", "")
+            if blk_model:
+                blk_ds_name = _ensure_model_datasource(blk_model)
+            else:
+                _ensure_odbc_datasource()
+                blk_ds_name = odbc_name
+            blk_cols = layout.get(blk["name"], {}).get("columns", [])
+            blk_fields = "\n".join(
+                f"""        <Field Name="{safe_name(col)}">
+          <rd:TypeName>System.String</rd:TypeName>
+          <DataField>{xe(col)}</DataField>
+        </Field>"""
+                for col in blk_cols
+            )
+            ds_parts.append(f"""    <DataSet Name="ds_{blk_name}">
+      <Query>
+        <DataSourceName>{blk_ds_name}</DataSourceName>
+{query_params_xml}
+        <!-- sql_source: original_sql — {xe(blk['name'])} -->
+        <CommandText>{xe(blk['sql'])}</CommandText>
+      </Query>
+      <Fields>
+{blk_fields}
+      </Fields>
+    </DataSet>""")
+
+        datasource_xml = "  <DataSources>\n" + "\n".join(datasource_parts) + "\n  </DataSources>"
+        dataset_xml = "  <DataSets>\n" + "\n".join(ds_parts) + "\n  </DataSets>"
+
+    elif datasource_type == "semantic_model":
         semantic_model = guess_semantic_model(report)   # honours _spec_model
         # Use spec-confirmed values when present (set by spec_parser from the Data Source section)
         ds_name = (
@@ -506,13 +592,14 @@ def generate_rdl(report: dict) -> str:
   </DataSets>"""
 
     else:
-        # ODBC / DB2 (BOADB) or Snowflake direct ODBC
+        # ODBC / DB2 (BOADB) or Snowflake direct ODBC — single dataset
         if datasource_type == "db2":
             db_name  = c.db2_source_name  if c else "BOADB"
             dsn_name = c.db2_dsn          if c else "MOS-Q1-BOADB"
         else:
             db_name  = c.sfodbc_source_name if c else "LPC_E2_SFODBC"
             dsn_name = c.sfodbc_dsn         if c else "MOS-PX-SFODBC"
+
         datasource_xml = f"""  <DataSources>
     <DataSource Name="{db_name}">
       <rd:SecurityType>DataBase</rd:SecurityType>
@@ -524,8 +611,6 @@ def generate_rdl(report: dict) -> str:
       <rd:DataSourceID>{str(uuid.uuid4())}</rd:DataSourceID>
     </DataSource>
   </DataSources>"""
-
-        # ── SQL: spec-embedded > hand-authored file > auto-generated stub ──
         sql_text = report.get("_spec_sql") or _load_sql(report["name"])
         sql_source = "file"
         if sql_text is None:
@@ -570,38 +655,18 @@ def generate_rdl(report: dict) -> str:
     </DataSet>
   </DataSets>"""
 
-    # ── Body tablix ────────────────────────────────────────────────────
-    tablix_xml = make_tablix_xml(name, unique_columns, name)
-
-    # Estimate body height (rows ~ columns * 3, capped at 250)
-    est_rows = max(20, len(unique_columns) * 3)
-    body_height = round(min(est_rows, 250) * 0.25 + 1.0, 2)
-
     # ── Embedded logo ──────────────────────────────────────────────────
     logo_b64 = c.logo_b64 if c else ""
-    if logo_b64:
+    logo_name = c.logo_name if c else ""
+    if logo_b64 and logo_name:
         embedded_images_xml = f"""  <EmbeddedImages>
-    <EmbeddedImage Name="molotterylogov">
+    <EmbeddedImage Name="{logo_name}">
       <MIMEType>image/png</MIMEType>
       <ImageData>{logo_b64}</ImageData>
     </EmbeddedImage>
   </EmbeddedImages>"""
-        logo_item_xml = """            <Image Name="Logo">
-              <Source>Embedded</Source>
-              <Value>molotterylogov</Value>
-              <Sizing>FitProportional</Sizing>
-              <Left>0.01389in</Left>
-              <Height>0.90563in</Height>
-              <Width>1in</Width>
-              <ZIndex>3</ZIndex>
-              <Style><Border><Style>None</Style></Border></Style>
-            </Image>"""
     else:
         embedded_images_xml = ""
-        logo_item_xml = ""
-
-    # ── Date range row in header (shows StartDate/EndDate if present) ──
-    date_range_item_xml = _date_range_xml(params)
 
     # ── Page dimensions from config ────────────────────────────────────
     page_w = c.page_width if c else "11in"
@@ -609,6 +674,90 @@ def generate_rdl(report: dict) -> str:
     margin = c.margin if c else "0.2in"
     hdr_h = c.header_height if c else "0.90563in"
     ftr_h = c.footer_height if c else "0.42486in"
+
+    # ── Body tablix(es) ───────────────────────────────────────────────
+    # Multi-block: one Rectangle per tab (section title + tablix) with page
+    # breaks between them — Report Builder only allows one ReportSection.
+    sql_blocks = report.get("_spec_sql_blocks", [])
+    if sql_blocks:
+        body_items = []
+        top_offset = 0.1
+        for i, blk in enumerate(sql_blocks):
+            blk_name = blk["name"]
+            blk_cols = layout.get(blk_name, {}).get("columns", [])
+            if not blk_cols:
+                continue
+            ds_ref = f"ds_{safe_name(blk_name)}"
+            sfx = safe_name(blk_name)
+            t_xml = make_tablix_xml(blk_name, blk_cols, ds_ref)
+            # Wrap in a Rectangle with a section-title textbox above the tablix.
+            # PageBreak before each tab except the first.
+            page_break = ""
+            if i > 0:
+                page_break = """
+        <PageBreak><BreakLocation>Start</BreakLocation></PageBreak>"""
+            col_count = len(blk_cols)
+            tab_height = round(max(5, col_count) * 0.25 + 1.0, 2)
+            rect_height = round(tab_height + 0.5, 2)
+            body_items.append(f"""      <Rectangle Name="rect_{sfx}">{page_break}
+        <Top>{top_offset:.2f}in</Top>
+        <Left>0.1in</Left>
+        <Height>{rect_height}in</Height>
+        <Width>10.3in</Width>
+        <ReportItems>
+          <Textbox Name="TabTitle_{sfx}">
+            <CanGrow>true</CanGrow>
+            <Paragraphs>
+              <Paragraph>
+                <TextRuns>
+                  <TextRun>
+                    <Value>{xe(blk_name)}</Value>
+                    <Style>
+                      <FontFamily>Segoe UI</FontFamily>
+                      <FontSize>11pt</FontSize>
+                      <FontWeight>Bold</FontWeight>
+                    </Style>
+                  </TextRun>
+                </TextRuns>
+              </Paragraph>
+            </Paragraphs>
+            <Top>0in</Top>
+            <Left>0in</Left>
+            <Height>0.35in</Height>
+            <Width>10.2in</Width>
+            <Style>
+              <Border><Style>None</Style></Border>
+              <PaddingLeft>2pt</PaddingLeft><PaddingBottom>4pt</PaddingBottom>
+            </Style>
+          </Textbox>
+{t_xml}
+        </ReportItems>
+        <Style><Border><Style>None</Style></Border></Style>
+      </Rectangle>""")
+            top_offset += rect_height + 0.2
+        tablix_xml = "\n\n".join(body_items)
+        body_height = round(top_offset + 0.5, 2)
+    else:
+        tablix_xml = make_tablix_xml(name, unique_columns, name)
+        est_rows = max(20, len(unique_columns) * 3)
+        body_height = round(min(est_rows, 250) * 0.25 + 1.0, 2)
+
+    # ── Embedded logo ──────────────────────────────────────────────────
+    logo_item_xml = ""
+    if logo_b64 and logo_name:
+        logo_item_xml = f"""            <Image Name="Logo">
+              <Source>Embedded</Source>
+              <Value>{logo_name}</Value>
+              <Sizing>FitProportional</Sizing>
+              <Left>0.01389in</Left>
+              <Height>0.90563in</Height>
+              <Width>1in</Width>
+              <ZIndex>3</ZIndex>
+              <Style><Border><Style>None</Style></Border></Style>
+            </Image>"""
+
+    # ── Date range row in header ───────────────────────────────────────
+    date_range_item_xml = _date_range_xml(params)
 
     rdl = f"""<?xml version="1.0" encoding="utf-8"?>
 <!--

@@ -86,7 +86,13 @@ def main() -> None:
         action="store_true",
         help="List all configured models and exit",
     )
+    parser.add_argument("--log", action="store_true", help="Write output to a timestamped log file in output/")
     args = parser.parse_args()
+
+    if args.log:
+        from _log import setup_file_logging
+        log_path = setup_file_logging(output_dir="output")
+        print(f"  Logging to {log_path}")
 
     try:
         cfg = load_config(env=args.env)
